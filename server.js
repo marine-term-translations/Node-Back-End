@@ -79,7 +79,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  */
 app.post('/api/github/token', async (req, res) => {
   const { code } = req.body;
-  console.log("code :", code);
+  // console.log("code :", code);
   const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
   const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
   if (!CLIENT_ID || !CLIENT_SECRET) {
@@ -109,6 +109,7 @@ app.post('/api/github/token', async (req, res) => {
         }
       }
     );
+    console.log(response.data);
     if (response.status === 200) {
       const responseData = response.data;
 
@@ -131,7 +132,7 @@ app.post('/api/github/token', async (req, res) => {
       error: 'GitHub API Error',
       message: `Received status code ${response.status} from GitHub API.`,
     });
-    
+
   } catch (error) {
     if (error.response) {
       // Server responded with a status other than 2xx
