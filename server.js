@@ -105,15 +105,15 @@ app.post('/api/github/token', async (req, res) => {
 });
 
 app.get('/api/github/branch', async (req, res) => {
-  const {repo, path} = req.query;
+  const {repo,} = req.query;
   const token = req.headers.authorization;
   try{
     const octokit = new Octokit({
       auth: token
     });
     const response = await octokit.request('GET /repos/{owner}/{repo}/branches', {
-      owner: 'OWNER',
-      repo: 'REPO',
+      owner: process.env.GITHUB_OWNER,
+      repo,
       headers: {
         'X-GitHub-Api-Version': '2022-11-28'
       }
