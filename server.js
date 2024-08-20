@@ -109,6 +109,7 @@ app.post('/api/github/token', async (req, res) => {
         },
       }
     );
+    console.log(response)
     if (response.status !== 200) {
       console.error('GitHub API responded with a non-200 status code:', response.status);
       return res.status(response.status).json({
