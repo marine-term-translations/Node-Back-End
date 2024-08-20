@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  node_server_backend:
+    container_name: node_server_backend
+    hostname: node_server_backend
+    build: .
+    restart: unless-stopped
+    ports:
+      - "5001:5000"
+    env_file:
+      - .env
+  backend_proxy:
+    container_name: backend_proxy
+    restart: unless-stopped
+    build: ./proxy
+    ports:
+      - "5002:443"
+    depends_on:
+      - node_server_backend
+    
