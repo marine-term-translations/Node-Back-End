@@ -106,18 +106,32 @@ app.post('/api/github/token', async (req, res) => {
       {
         headers: {
           Accept: 'application/json',
-        },
+        }
       }
     );
-    console.log(response)
-    if (response.status !== 200) {
-      console.error('GitHub API responded with a non-200 status code:', response.status);
-      return res.status(response.status).json({
-        error: 'GitHub API Error',
-        message: `Received status code ${response.status} from GitHub API.`,
-      });
+    if (response.status === 200) {
+      const responseData = response.data;
+
+      // Check for error in response data
+      if (responseData.error) {
+        console.error('GitHub API returned an error:', responseData.error);
+        return res.status(400).json({
+          error: responseData.error,
+          message: responseData.error_description,
+          documentation_url: responseData.error_uri,
+        });
+      }
+
+      return res.json(responseData);
     }
-    res.json(response.data);
+
+    // Handle unexpected status codes
+    console.error('Unexpected status code from GitHub API:', response.status);
+    return res.status(response.status).json({
+      error: 'GitHub API Error',
+      message: `Received status code ${response.status} from GitHub API.`,
+    });
+    
   } catch (error) {
     if (error.response) {
       // Server responded with a status other than 2xx
