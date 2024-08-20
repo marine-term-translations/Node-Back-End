@@ -79,6 +79,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocs));
  */
 app.post('/api/github/token', async (req, res) => {
   const { code } = req.body;
+  console.log("code :", code);
   const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
   const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
   if (!CLIENT_ID || !CLIENT_SECRET) {
