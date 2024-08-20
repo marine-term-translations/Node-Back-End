@@ -81,15 +81,26 @@ app.post('/api/github/token', async (req, res) => {
   const { code } = req.body;
   const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
   const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
-  // console.log("CLIENT_ID"+CLIENT_ID);
-  // console.log("CLIENT_SECRET"+CLIENT_SECRET);
+  if (!CLIENT_ID || !CLIENT_SECRET) {
+    console.error('GitHub Client ID or Client Secret is missing.');
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Bad server initialization.',
+    });
+  }
+  if (!code) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'The "code" field is required.',
+    });
+  }
   try {
     const response = await axios.post(
       'https://github.com/login/oauth/access_token',
       new URLSearchParams({
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
-        code: code,
+        code,
       }),
       {
         headers: {
@@ -97,12 +108,40 @@ app.post('/api/github/token', async (req, res) => {
         },
       }
     );
+    if (response.status !== 200) {
+      console.error('GitHub API responded with a non-200 status code:', response.status);
+      return res.status(response.status).json({
+        error: 'GitHub API Error',
+        message: `Received status code ${response.status} from GitHub API.`,
+      });
+    }
     res.json(response.data);
   } catch (error) {
-    console.error('Error while retrieving the token:', error);
-    res.status(500).send(`CLIENT_ID = ${CLIENT_ID} or ${process.env.GITHUB_CLIENT_ID} Server internal error`);
+    if (error.response) {
+      // Server responded with a status other than 2xx
+      console.error('GitHub API error:', error.response.status, error.response.data);
+      res.status(error.response.status).json({
+        error: 'GitHub API Error',
+        message: error.response.data.error || 'An error occurred while communicating with the GitHub API.',
+      });
+    } else if (error.request) {
+      // Request was made but no response was received
+      console.error('No response from GitHub API:', error.request);
+      res.status(504).json({
+        error: 'Gateway Timeout',
+        message: 'No response received from GitHub API.',
+      });
+    } else {
+      // Something happened in setting up the request
+      console.error('Error while setting up the request:', error.message);
+      res.status(500).json({
+        error: 'Internal Server Error',
+        message: 'An unexpected error occurred.',
+      });
+    }
   }
 });
+
 
 app.get('/api/github/branch', async (req, res) => {
   const {repo,} = req.query;
