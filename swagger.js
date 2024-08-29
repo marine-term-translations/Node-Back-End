@@ -1,13 +1,11 @@
 import swaggerAutogen from 'swagger-autogen';
 
-const swaggerAutogenInstance = swaggerAutogen();
-
 const doc = {
   info: {
     title: 'API Documentation',
-    description: 'Description de l\'API',
+    description: 'API Description',
   },
-  host: 'localhost:3000',
+  host: 'localhost:5000',
   schemes: ['http'],
 };
 

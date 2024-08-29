@@ -21,60 +21,55 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
 app.post('/api/github/token', async (req, res) => {
   const { code } = req.body;
-  // console.log("code :", code);
-  const CLIENT_ID = process.env.GITHUB_CLIENT_ID;
-  const CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
-  if (!CLIENT_ID || !CLIENT_SECRET) {
+  const client_id = process.env.GITHUB_CLIENT_ID;
+  const client_secret = process.env.GITHUB_CLIENT_SECRET;
+
+  if (!client_id || !client_secret) {
     console.error('GitHub Client ID or Client Secret is missing.');
     return res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Bad server initialization.',
+      message: 'GitHub Client ID or Client Secret is missing in the environment variables.',
     });
   }
+
   if (!code) {
     return res.status(400).json({
       error: 'Bad Request',
       message: 'The "code" field is required.',
     });
   }
+
   try {
     const response = await axios.post(
       'https://github.com/login/oauth/access_token',
       new URLSearchParams({
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
-        code,
+        client_id,
+        client_secret,
+        code: code,
       }),
       {
         headers: {
           Accept: 'application/json',
-        }
+        },
       }
     );
-    // console.log(response.data);
-    if (response.status === 200) {
-      const responseData = response.data;
 
-      // Check for error in response data
-      if (responseData.error) {
-        console.error('GitHub API returned an error:', responseData.error);
-        return res.status(400).json({
-          error: responseData.error,
-          message: responseData.error_description,
-          documentation_url: responseData.error_uri,
-        });
-      }
-
-      return res.json(responseData);
+    if (response.status !== 200) {
+      console.error('GitHub API responded with a non-200 status code:', response.status);
+      return res.status(response.status).json({
+        error: 'GitHub API Error',
+        message: `Received status code ${response.status} from GitHub API.`,
+      });
+    }
+    if (response.data.error) {
+      console.error('GitHub API responded with a error with 200 status code:', response.data.error_description);
+      return res.status(400).json({
+        error: response.data.error,
+        message: response.data.error_description,
+      });
     }
 
-    // Handle unexpected status codes
-    console.error('Unexpected status code from GitHub API:', response.status);
-    return res.status(response.status).json({
-      error: 'GitHub API Error',
-      message: `Received status code ${response.status} from GitHub API.`,
-    });
-
+    res.json(response.data);
   } catch (error) {
     if (error.response) {
       // Server responded with a status other than 2xx
@@ -101,132 +96,511 @@ app.post('/api/github/token', async (req, res) => {
   }
 });
 
-app.get('/api/github/branch', async (req, res) => {
-  const {repo,} = req.query;
+app.get('/api/github/branches', async (req, res) => {
+  const { repo } = req.query;
   const token = req.headers.authorization;
-  try{
-    const octokit = new Octokit({
-      auth: token
+
+  // Validate token
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Authorization token is required in the headers.',
     });
+  }
+
+  // Validate repo query parameter
+  if (!repo) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'The "repo" query parameter is required.',
+    });
+  }
+
+  // Validate GITHUB_OWNER and GITHUB_KEY_BRANCH environment variables
+  const owner = process.env.GITHUB_OWNER;
+  const keyBranchPrefix = process.env.GITHUB_KEY_BRANCH;
+
+  if (!owner) {
+    console.error('GitHub owner is missing in environment variables.');
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'GitHub owner is not set in environment variables.',
+    });
+  }
+
+  if (!keyBranchPrefix) {
+    console.error('GitHub key branch prefix is missing in environment variables.');
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'GitHub key branch prefix is not set in environment variables.',
+    });
+  }
+
+  try {
+    const octokit = new Octokit({
+      auth: token,
+    });
+
     const response = await octokit.request('GET /repos/{owner}/{repo}/branches', {
-      owner: process.env.GITHUB_OWNER,
+      owner,
       repo,
       headers: {
-        'X-GitHub-Api-Version': '2022-11-28'
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+
+    // Filter branches based on the key branch prefix
+    const branches = response.data.filter(branch => branch.name.startsWith(keyBranchPrefix));
+
+    // Retrieve details for each branch
+    const branchDetails = await Promise.all(branches.map(async (branch) => {
+      try {
+        // Get the branch's latest commit
+        const commitResponse = await octokit.request('GET /repos/{owner}/{repo}/commits/{sha}', {
+          owner,
+          repo,
+          sha: branch.commit.sha,
+          headers: {
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        });
+
+        return {
+          name: branch.name,
+          lastCommit: commitResponse.data.commit.committer.date,
+        };
+      } catch (commitError) {
+        console.error(`Error retrieving commit details for branch ${branch.name}:`, commitError);
+        return {
+          name: branch.name,
+          lastCommit: 'Error retrieving commit details',
+        };
       }
+    }));
+    // console.log(branchDetails);
+    res.json(branchDetails);
+  } catch (error) {
+    if (error.status) {
+      // GitHub API responded with an error status
+      console.error('GitHub API error:', error.status, error.message);
+      return res.status(error.status).json({
+        error: 'GitHub API Error',
+        message: error.message || 'An error occurred while communicating with the GitHub API.',
+      });
+    }
+
+    // Other unexpected errors
+    console.error('Error while retrieving branches:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'An unexpected error occurred while retrieving the branches.',
     });
-    const branchs = response.data.filter(branche => branche.name.startsWith(process.env.GITHUB_KEY_BRANCH));
-    res.json(branchs);
-  }catch(error){
-    console.error('Error while retrieving the file count', error);
-    res.status(500).send('Server internal error');
   }
 });
 
-app.get('/api/github/content', async (req, res) => {
-  const { repo, path } = req.query;
+app.get('/api/github/diff', async (req, res) => {
+  const { repo, branch } = req.query;
   const token = req.headers.authorization;
-  // console.log(token);
-  try{
-    const octokit = new Octokit({
-      auth: token
+
+  // Validate token
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Authorization token is required in the headers.',
     });
-    const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-      owner: process.env.GITHUB_OWNER,
-      repo,
-      path: path,
-      ref: process.env.GITHUB_BRANCH
-    });
-    res.json(Buffer.from(response.data.content, 'base64').toString('utf-8'));
-  }catch (error){
-    console.error('Error while retrieving the file count', error);
-    res.status(500).send('Server internal error');
   }
 
-});
-
-app.get('/api/github/list', async (req, res) => {
-  const { repo, path, branch} = req.query;
-  const token = req.headers.authorization;
-  try{
-    const octokit = new Octokit({
-      auth: token
+  // Validate repo and branch query parameters
+  if (!repo || !branch) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Both "repo" and "branch" query parameters are required.',
     });
-    const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-      owner: process.env.GITHUB_OWNER,
-      repo,
-      path: path,
-      ref: branch
-    });
-    const files = response.data.filter(item => item.type === 'file' && item.name.endsWith('.yml'));
-    res.json(files);
-  }catch (error){
-    console.error('Error while retrieving file list', error);
-    res.status(500).send('Server internal error');
   }
-});
 
-app.put('/api/github/update', async (req, res) => {
-  // console.log("update");
-  const { repo, path, translations, language } = req.body;
-  const token = req.headers.authorization;
-  try{
-    // console.log("1");
+  // Validate branch name prefix
+  if (!branch.startsWith(process.env.GITHUB_KEY_BRANCH)) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Invalid branch name. The branch name must start with the specified key branch prefix.',
+    });
+  }
+
+  // Validate environment variables
+  const owner = process.env.GITHUB_OWNER;
+  if (!owner) {
+    console.error('GitHub owner is missing in environment variables.');
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'GitHub owner is not set in environment variables.',
+    });
+  }
+
+  try {
     const octokit = new Octokit({
-      auth: token
+      auth: token,
     });
-    // console.log(token);
-    // console.log(repo);
-    // console.log(path);
-    const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-      owner: process.env.GITHUB_OWNER,
+
+    // Get the diff between main and the specified branch
+    const compareResponse = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+      owner,
       repo,
-      path,
-      ref: process.env.GITHUB_BRANCH
+      basehead: `main...${branch}`,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
     });
-    // console.log("2");
-    const content = Buffer.from(response.data.content, 'base64').toString('utf-8');
-    const contentObj = parse(content);
-    contentObj.labels.forEach(label => {
-      const translationKey = label.name;
-      if (translations.hasOwnProperty(translationKey)) {
-        const translationObj = label.translations.find(t => t.hasOwnProperty(language));
-        if (translationObj) {
-          translationObj[language] = translations[translationKey];
-        }else{
-          console.error("there is no " + language + " in the translation proposal ")
+
+    // Retrieve the content of each changed file
+    const filesContent = await Promise.all(
+      compareResponse.data.files.map(async (file) => {
+        try {
+          const contentResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+            owner,
+            repo,
+            path: file.filename,
+            ref: branch,
+          });
+          const content = parse(Buffer.from(contentResponse.data.content, 'base64').toString('utf-8'));
+          return {"filename": file.filename ,"content": content};
+        } catch (error) {
+          console.error(`Error retrieving content for file ${file.filename}:`, error);
+          throw new Error(`Failed to retrieve content for file: ${file.filename}`);
         }
-      }
-      
+      })
+    );
+
+    // Respond with the file contents
+    res.json(filesContent);
+  } catch (error) {
+    console.error('Error while retrieving diff and file contents:', error);
+
+    if (error.response) {
+      // Handle GitHub API-specific errors
+      return res.status(error.response.status).json({
+        error: 'GitHub API Error',
+        message: error.response.data.message || 'An error occurred while communicating with the GitHub API.',
+      });
+    }
+
+    // Handle other unexpected errors
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'An unexpected error occurred while retrieving the diff.',
     });
-    // console.log("3");
-    const updatedContent = stringify(contentObj,{ quotingType: '"', prettyErrors: true });
-    // console.log("4");
-    const response2 = await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
-      owner: process.env.GITHUB_OWNER,
+  }
+});
+
+app.get('/api/github/conflicts', async (req, res) => {
+  const { repo, branch } = req.query;
+  const token = req.headers.authorization;
+
+  // Validate token
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Authorization token is required in the headers.',
+    });
+  }
+
+  // Validate repo and branch query parameters
+  if (!repo || !branch) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Both "repo" and "branch" query parameters are required.',
+    });
+  }
+
+  // Validate environment variables
+  const owner = process.env.GITHUB_OWNER;
+  if (!owner) {
+    console.error('GitHub owner is missing in environment variables.');
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'GitHub owner is not set in environment variables.',
+    });
+  }
+
+  try {
+    const octokit = new Octokit({
+      auth: token,
+    });
+
+    // Compare main with the specified branch
+    const compareResponseMain = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+      owner,
+      repo,
+      basehead: `main...${branch}`,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+
+    // Compare the specified branch with ldes_sync
+    const compareResponseSync = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+      owner,
+      repo,
+      basehead: `${branch}...ldes_sync`,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+
+    // Get filenames of modified files
+    const mainBranchFiles = compareResponseMain.data.files.map(file => file.filename);
+    const syncBranchFiles = compareResponseSync.data.files.map(file => file.filename);
+
+    // Find common files between the two comparisons
+    const commonFiles = mainBranchFiles.filter(filename => syncBranchFiles.includes(filename));
+
+    // If no common files, return no conflict
+    if (commonFiles.length === 0) {
+      return res.status(204).send('No conflicts found');
+    }
+
+    // Fetch and compare the content of the common files
+    const conflictslist = await Promise.all(
+      commonFiles.map(async (filename) => {
+        try {
+          // Get content of the file in the ldes_sync branch
+          const contentResponseSync = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+            owner,
+            repo,
+            path: filename,
+            ref: 'ldes_sync',
+          });
+          const contentSync = Buffer.from(contentResponseSync.data.content, 'base64').toString('utf-8');
+          
+          // Get content of the file in the specified branch
+          const contentResponseBranch = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+            owner,
+            repo,
+            path: filename,
+            ref: branch,
+          });
+          const contentBranch = Buffer.from(contentResponseBranch.data.content, 'base64').toString('utf-8');
+
+          // Parse contents
+          const parsedSync = parse(contentSync);
+          const parsedBranch = parse(contentBranch);
+
+          // Identify conflicts
+          const conflicts = [];
+          const labelsSync = parsedSync.labels;
+          const labelsBranch = parsedBranch.labels;
+          labelsSync.forEach(syncLabel => {
+            const branchLabel = labelsBranch.find(label => label.name === syncLabel.name);
+            if (branchLabel) {
+              syncLabel.translations.forEach(syncTranslation => {
+                const branchTranslation = branchLabel.translations.find(t =>
+                  Object.keys(t).some(lang => syncTranslation[lang] !== undefined && t[lang] !== undefined)
+                );
+                if (branchTranslation) {
+                  Object.entries(syncTranslation).forEach(([lang, syncValue]) => {
+                    if (lang !== 'name' && (syncValue !== branchTranslation[lang] && syncValue !== "")) {
+                      conflicts.push({
+                        label: syncLabel.name,
+                        language: lang,
+                        syncValue,
+                        branchValue: branchTranslation[lang],
+                      });
+                    }
+                  });
+                }
+              });
+            }
+          });
+          return { filename, conflicts };
+        } catch (err) {
+          console.error(`Error retrieving content for file ${filename}:`, err);
+          return { filename, conflicts: [{ error: `Failed to retrieve content for file: ${filename}` }] };
+        }
+      })
+    );
+    var boolConflict = false
+    conflictslist.forEach(conflict => {
+      if(conflict.conflicts.length > 0){
+        boolConflict=true;
+      }
+    })
+    // Return the conflicts
+    if(boolConflict){
+      res.json(conflictslist);
+    }else{
+      return res.status(204).send('No conflicts found');
+    }
+
+  } catch (error) {
+    console.error('Error while checking for conflicts:', error);
+
+    if (error.response) {
+      // Handle GitHub API-specific errors
+      return res.status(error.response.status).json({
+        error: 'GitHub API Error',
+        message: error.response.data.message || 'An error occurred while communicating with the GitHub API.',
+      });
+    }
+
+    // Handle other unexpected errors
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'An unexpected error occurred while checking for conflicts.',
+    });
+  }
+});
+
+
+
+// // don't used
+// app.get('/api/github/list', async (req, res) => {
+//   const { repo, path, branch} = req.query;
+//   const token = req.headers.authorization;
+//   try{
+//     const octokit = new Octokit({
+//       auth: token
+//     });
+//     const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+//       owner: process.env.GITHUB_OWNER,
+//       repo,
+//       path: path,
+//       ref: branch
+//     });
+//     const files = response.data.filter(item => item.type === 'file' && item.name.endsWith('.yml'));
+//     res.json(files);
+//   }catch (error){
+//     console.error('Error while retrieving file list', error);
+//     res.status(500).send('Server internal error');
+//   }
+// });
+
+// // don't used
+// app.get('/api/github/content', async (req, res) => {
+//   const { repo, path, branch} = req.query;
+//   const token = req.headers.authorization;
+//   // console.log(token);
+//   try{
+//     const octokit = new Octokit({
+//       auth: token
+//     });
+//     const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+//       owner: process.env.GITHUB_OWNER,
+//       repo,
+//       path: path,
+//       ref: branch
+//     });
+//     res.json(Buffer.from(response.data.content, 'base64').toString('utf-8'));
+//   }catch (error){
+//     console.error('Error while retrieving the file count', error);
+//     res.status(500).send('Server internal error');
+//   }
+
+// });
+
+
+// translations forma {filename : {labelname : {language : term, ...}, ...}}
+app.put('/api/github/update', async (req, res) => {
+  const { repo, translations, branch, filename } = req.body;
+  const token = req.headers.authorization;
+  // console.log(translations)
+
+  // Validate request parameters
+  if (!repo || !translations || !branch || !filename) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'The "repo", "translations", "filename", and "branch" fields are required in the request body.',
+    });
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Authorization token is required in the headers.',
+    });
+  }
+
+  const owner = process.env.GITHUB_OWNER;
+
+  if (!owner) {
+    console.error('GitHub owner is missing in environment variables.');
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'GitHub owner is not set in environment variables.',
+    });
+  }
+
+  try {
+    const octokit = new Octokit({
+      auth: token,
+    });
+
+    const value = translations[filename];
+    const path = filename
+    // Fetch the file content from GitHub
+    const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
       repo,
       path,
-      branch: process.env.GITHUB_BRANCH,
+      ref: branch,
+    });
+    
+    const content = parse(Buffer.from(response.data.content, 'base64').toString('utf-8'));
+
+    // Update the content with the provided translations
+    content.labels.forEach(label => {
+      const translationKey = label.name;
+      if (value.hasOwnProperty(translationKey)) {
+        Object.entries(value[translationKey]).forEach(([language, term]) => {
+          const translationObj = label.translations.find(t => t.hasOwnProperty(language));
+          if (translationObj) {
+            translationObj[language] = term;
+          } else {
+            console.warn(`Language ${language} not found for label ${translationKey}`);
+          }
+        });
+      }
+    });
+
+
+    const updatedContent = stringify(content, { quotingType: '"', prettyErrors: true, lineWidth: 0, defaultStringType: 'QUOTE_DOUBLE', defaultKeyType: 'PLAIN' });
+    // console.log(updatedContent)
+
+    // Commit the updated file to the repository
+    const response2 = await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo,
+      path,
+      branch,
       message: `Update translations for ${path}`,
       content: Buffer.from(updatedContent).toString('base64'),
-      sha : response.data.sha,
-      headers :{
-        'Content-Type':'application/json',
-        'Authorization': 'token %s' % octokit.auth,
-      }
+      sha: response.data.sha,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
     });
-    // console.log("5");
-    // console.log(response2);
-    res.json(response2);
-  }catch (error){
-    console.error('Error while updating the file', error);
-    res.status(500).send('Server internal error');
-  }
 
+    res.json(response2.data);
+  } catch (error) {
+    console.error('Error while updating the file:', error);
+
+    if (error.response) {
+      // Handle GitHub API-specific errors
+      return res.status(error.response.status).json({
+        error: 'GitHub API Error',
+        message: error.response.data.message || 'An error occurred while communicating with the GitHub API.',
+      });
+    }
+
+    // Handle unexpected errors
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'An unexpected error occurred while updating the file.',
+    });
+  }
 });
 
+
 app.get('/api/github/changed', async (req, res) => {
-  const { repo } = req.query;
+  const { repo, branch } = req.query;
   const token = req.headers.authorization;
   try {
     let pullnumber;
@@ -238,14 +612,14 @@ app.get('/api/github/changed', async (req, res) => {
       headers: {
         'X-GitHub-Api-Version': '2022-11-28'
       },
-      direction: process.env.GITHUB_BRANCH,
+      direction: branch,
     });
     // console.log(response.data);
     if(!response.data[0]){
       const responseCompare = await octokit.request('GET /repos/{owner}/{repo}/compare/{base}...{head}', {
         owner: process.env.GITHUB_OWNER,
         repo,
-        base: process.env.GITHUB_BRANCH,
+        base: branch,
         head: 'main'
       });
       if (responseCompare.data.behind_by == 0){
@@ -257,7 +631,7 @@ app.get('/api/github/changed', async (req, res) => {
         repo,
         title: 'Amazing new translate',
         body: 'Please pull these awesome changes in!',
-        head: process.env.GITHUB_BRANCH,
+        head: branch,
         base: 'main',
         draft : true,
         headers: {
@@ -326,7 +700,7 @@ app.get('/api/github/changed', async (req, res) => {
 });
 
 app.put('/api/github/pull', async (req, res) => {
-  const {repo, pullnumber } = req.body;
+  const {repo, pullnumber} = req.body;
   const token = req.headers.authorization;
   try {
     const octokit = new Octokit({ auth: token });
@@ -401,6 +775,6 @@ app.post('/api/github/comment', async (req, res) => {
 
 app.listen(port, () => {
   console.log(`Serveur backend en écoute sur http://localhost:${port}`);
-  console.log(`Domain's name is : ${process.env.DOMAIN_NAME}`);
+  // console.log(`Domain's name is : ${process.env.DOMAIN_NAME}`);
   console.log(`Client ID is : ${process.env.GITHUB_CLIENT_ID}`);
 });
