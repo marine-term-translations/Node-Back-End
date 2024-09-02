@@ -693,7 +693,6 @@ app.get('/api/github/changed', async (req, res) => {
           owner,
           repo,
           path: file.filename,
-          ref: branch,
         });
         const beforeContent = Buffer.from(beforeResponse.data.content, 'base64').toString('utf-8');
 
