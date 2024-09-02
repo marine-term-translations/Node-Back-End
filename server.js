@@ -602,88 +602,127 @@ app.put('/api/github/update', async (req, res) => {
 app.get('/api/github/changed', async (req, res) => {
   const { repo, branch } = req.query;
   const token = req.headers.authorization;
+
+  // Validate required fields
+  if (!repo || !branch) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: '"repo" and "branch" query parameters are required.',
+    });
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Authorization token is required in the headers.',
+    });
+  }
+
+  const owner = process.env.GITHUB_OWNER;
+  if (!owner) {
+    console.error('GitHub owner is missing in environment variables.');
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'GitHub owner is not set in environment variables.',
+    });
+  }
+
   try {
-    let pullnumber;
+    let pullNumber;
     const octokit = new Octokit({ auth: token });
 
-    const response = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
-      owner: process.env.GITHUB_OWNER,
+    // Retrieve pull requests related to the branch
+    const pullsResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
+      owner,
       repo,
+      head: branch,
+      base: 'main',
       headers: {
-        'X-GitHub-Api-Version': '2022-11-28'
+        'X-GitHub-Api-Version': '2022-11-28',
       },
-      direction: branch,
     });
-    // console.log(response.data);
-    if(!response.data[0]){
-      const responseCompare = await octokit.request('GET /repos/{owner}/{repo}/compare/{base}...{head}', {
-        owner: process.env.GITHUB_OWNER,
+
+    // If there's no existing PR, check if the branch is behind the main branch
+    if (!pullsResponse.data.length) {
+      const compareResponse = await octokit.request('GET /repos/{owner}/{repo}/compare/{base}...{head}', {
+        owner,
         repo,
-        base: branch,
-        head: 'main'
+        base: 'main',
+        head: branch,
       });
-      if (responseCompare.data.behind_by == 0){
-        res.json({compare: true});
-        return;
+
+      // If the branch is not behind main, return success
+      if (compareResponse.data.behind_by === 0) {
+        return res.json({ compare: true });
       }
-      const responseCreate = await octokit.request('POST /repos/{owner}/{repo}/pulls', {
-        owner: process.env.GITHUB_OWNER,
+
+      // Create a new pull request if the branch is behind
+      const createPullResponse = await octokit.request('POST /repos/{owner}/{repo}/pulls', {
+        owner,
         repo,
-        title: 'Amazing new translate',
-        body: 'Please pull these awesome changes in!',
+        title: 'Amazing new translations',
+        body: 'Please pull these awesome changes!',
         head: branch,
         base: 'main',
-        draft : true,
+        draft: true,
         headers: {
-          'X-GitHub-Api-Version': '2022-11-28'
-        }
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
       });
-      pullnumber = responseCreate.data.number;
-    }else{
-      pullnumber = response.data[0].number;
-    }
-    
 
+      pullNumber = createPullResponse.data.number;
+    } else {
+      // Use the existing pull request
+      pullNumber = pullsResponse.data[0].number;
+    }
+
+    // Retrieve changed files in the pull request
     const { data: files } = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
-      owner: process.env.GITHUB_OWNER,
+      owner,
       repo,
-      pull_number: pullnumber,
+      pull_number: pullNumber,
       headers: {
-        'X-GitHub-Api-Version': '2022-11-28'
-      }
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
     });
 
-
+    // Retrieve diffs and file contents for each file
     const diffsData = await Promise.all(files.map(async file => {
-      const beforeResponse = await octokit.request(`GET /repos/{owner}/{repo}/contents/{path}`, {
-        owner: process.env.GITHUB_OWNER,
-        repo,
-        path: file.filename,
-      });
-      const beforeContent = Buffer.from(beforeResponse.data.content, 'base64').toString('utf-8');
+      try {
+        const beforeResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+          owner,
+          repo,
+          path: file.filename,
+          ref: branch,
+        });
+        const beforeContent = Buffer.from(beforeResponse.data.content, 'base64').toString('utf-8');
 
-      const afterResponse = await octokit.request(`GET ${file.contents_url}`);
-      const afterContent = Buffer.from(afterResponse.data.content, 'base64').toString('utf-8');
+        const afterResponse = await octokit.request(`GET ${file.contents_url}`);
+        const afterContent = Buffer.from(afterResponse.data.content, 'base64').toString('utf-8');
 
-      const diff = diffLines(beforeContent, afterContent);
+        const diff = diffLines(beforeContent, afterContent);
 
-      return {
-        filename: file.filename,
-        before: beforeContent,
-        after: afterContent,
-        filesha : file.sha,
-        diff: diff
-      };
+        return {
+          filename: file.filename,
+          before: beforeContent,
+          after: afterContent,
+          filesha: file.sha,
+          diff,
+        };
+      } catch (fileError) {
+        console.error(`Error retrieving content for file ${file.filename}:`, fileError);
+        throw new Error(`Failed to retrieve content for file: ${file.filename}`);
+      }
     }));
 
-
+    // Retrieve comments on the pull request
     const commentsResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/comments', {
-      owner: process.env.GITHUB_OWNER,
+      owner,
       repo,
-      pull_number: pullnumber,
+      pull_number: pullNumber,
       headers: {
-        'X-GitHub-Api-Version': '2022-11-28'
-      }
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
     });
 
     const commentsData = commentsResponse.data.map(comment => ({
@@ -692,10 +731,24 @@ app.get('/api/github/changed', async (req, res) => {
       body: comment.body,
       created_at: comment.created_at,
     }));
-    res.json({ diffsData, commentsData, pullnumber });
+
+    res.json({ diffsData, commentsData, pullNumber });
   } catch (error) {
-    console.error('Aïe', error);
-    res.status(500).send('Error while retrieving data.');
+    console.error('Error while retrieving changed files or comments:', error);
+
+    if (error.response) {
+      // Handle GitHub API-specific errors
+      return res.status(error.response.status).json({
+        error: 'GitHub API Error',
+        message: error.response.data.message || 'An error occurred while communicating with the GitHub API.',
+      });
+    }
+
+    // Handle unexpected errors
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'An unexpected error occurred while retrieving the changed files or comments.',
+    });
   }
 });
 
