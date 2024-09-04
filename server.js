@@ -19,6 +19,26 @@ app.use(json());
 
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerFile));
 
+app.get('/api/github/oauth/link', async (req, res) => {
+  const client_id = process.env.GITHUB_CLIENT_ID;
+
+  // Validate the presence of the GitHub Client ID
+  if (!client_id) {
+    console.error('GitHub Client ID is missing.');
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'GitHub Client ID is missing in the environment variables.',
+    });
+  }
+
+  // Generate the GitHub OAuth authorization link
+  const scope = 'write:packages%20write:repo_hook%20read:repo_hook%20repo';
+
+  // Respond with the OAuth link
+  res.json({ client_id, scope });
+});
+
+
 app.post('/api/github/token', async (req, res) => {
   const { code } = req.body;
   const client_id = process.env.GITHUB_CLIENT_ID;
@@ -473,35 +493,35 @@ app.get('/api/github/conflicts', async (req, res) => {
 //   }
 // });
 
-// // don't used
-// app.get('/api/github/content', async (req, res) => {
-//   const { repo, path, branch} = req.query;
-//   const token = req.headers.authorization;
-//   // console.log(token);
-//   try{
-//     const octokit = new Octokit({
-//       auth: token
-//     });
-//     const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-//       owner: process.env.GITHUB_OWNER,
-//       repo,
-//       path: path,
-//       ref: branch
-//     });
-//     res.json(Buffer.from(response.data.content, 'base64').toString('utf-8'));
-//   }catch (error){
-//     console.error('Error while retrieving the file count', error);
-//     res.status(500).send('Server internal error');
-//   }
+// don't used
+app.get('/api/github/content', async (req, res) => {
+  const { repo, path, branch} = req.query;
+  const token = req.headers.authorization;
+  // console.log(token);
+  try{
+    const octokit = new Octokit({
+      auth: token
+    });
+    const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner: process.env.GITHUB_OWNER,
+      repo,
+      path: path,
+      ref: branch
+    });
+    res.json(parse(Buffer.from(response.data.content, 'base64').toString('utf-8')));
+  }catch (error){
+    console.error('Error while retrieving the file count', error);
+    res.status(500).send('Server internal error');
+  }
 
-// });
+});
 
 
-// translations forma {filename : {labelname : {language : term, ...}, ...}}
+// translations forma {[labelname] : {[language] : term, ...}, ...}
 app.put('/api/github/update', async (req, res) => {
   const { repo, translations, branch, filename } = req.body;
   const token = req.headers.authorization;
-  // console.log(translations)
+  console.log(req.body)
 
   // Validate request parameters
   if (!repo || !translations || !branch || !filename) {
@@ -532,8 +552,9 @@ app.put('/api/github/update', async (req, res) => {
     const octokit = new Octokit({
       auth: token,
     });
-
-    const value = translations[filename];
+    console.log(translations)
+    const value = translations;
+    console.log(value)
     const path = filename
     // Fetch the file content from GitHub
     const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
@@ -546,6 +567,7 @@ app.put('/api/github/update', async (req, res) => {
     const content = parse(Buffer.from(response.data.content, 'base64').toString('utf-8'));
 
     // Update the content with the provided translations
+
     content.labels.forEach(label => {
       const translationKey = label.name;
       if (value.hasOwnProperty(translationKey)) {
@@ -577,7 +599,7 @@ app.put('/api/github/update', async (req, res) => {
         'X-GitHub-Api-Version': '2022-11-28',
       },
     });
-
+    console.log(content);
     res.json(response2.data);
   } catch (error) {
     console.error('Error while updating the file:', error);

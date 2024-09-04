@@ -11,4 +11,4 @@ COPY env_vars.txt .env
 
 EXPOSE 5000
 
-CMD ["node", "server.js"]
+CMD ["node", "server"]
