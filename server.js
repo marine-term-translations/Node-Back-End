@@ -199,6 +199,7 @@ app.get('/api/github/branches', async (req, res) => {
     }));
     // console.log(branchDetails);
     res.json(branchDetails);
+    
   } catch (error) {
     if (error.status) {
       // GitHub API responded with an error status
