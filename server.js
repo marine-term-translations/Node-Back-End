@@ -291,6 +291,7 @@ app.get('/api/github/diff', async (req, res) => {
     );
 
     // Respond with the file contents
+    // console.log(filesContent)
     res.json(filesContent);
   } catch (error) {
     console.error('Error while retrieving diff and file contents:', error);
