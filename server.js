@@ -258,23 +258,46 @@ app.get('/api/github/diff', async (req, res) => {
   }
 
   try {
+    let files;
     const octokit = new Octokit({
       auth: token,
     });
 
-    // Get the diff between main and the specified branch
-    const compareResponse = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+    const pullsResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
       owner,
       repo,
-      basehead: `main...${branch}`,
+      head: `${owner}:${branch}`,
+      base: 'main',
       headers: {
         'X-GitHub-Api-Version': '2022-11-28',
       },
     });
-
+    if (!pullsResponse.data.length) {
+      // Get the diff between main and the specified branch
+      const response = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+        owner,
+        repo,
+        basehead: `main...${branch}`,
+        headers: {
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+      files = response.data.files;
+    }else{
+      // Retrieve changed files in the pull request
+      const response = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
+        owner,
+        repo,
+        pull_number: pullsResponse.data[0].number,
+        headers: {
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+      files = response.data;
+    }
     // Retrieve the content of each changed file
     const filesContent = await Promise.all(
-      compareResponse.data.files.map(async (file) => {
+      files.map(async (file) => {
         try {
           const contentResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
             owner,
@@ -292,7 +315,6 @@ app.get('/api/github/diff', async (req, res) => {
     );
 
     // Respond with the file contents
-    // console.log(filesContent)
     res.json(filesContent);
   } catch (error) {
     console.error('Error while retrieving diff and file contents:', error);
@@ -419,7 +441,7 @@ app.get('/api/github/conflicts', async (req, res) => {
                 );
                 if (branchTranslation) {
                   Object.entries(syncTranslation).forEach(([lang, syncValue]) => {
-                    if (lang !== 'name' && (syncValue !== branchTranslation[lang] && syncValue !== "")) {
+                    if (syncValue !== branchTranslation[lang] && syncValue !== "") {
                       conflicts.push({
                         label: syncLabel.name,
                         language: lang,
@@ -523,7 +545,6 @@ app.get('/api/github/content', async (req, res) => {
 app.put('/api/github/update', async (req, res) => {
   const { repo, translations, branch, filename } = req.body;
   const token = req.headers.authorization;
-  console.log(req.body)
 
   // Validate request parameters
   if (!repo || !translations || !branch || !filename) {
@@ -554,9 +575,7 @@ app.put('/api/github/update', async (req, res) => {
     const octokit = new Octokit({
       auth: token,
     });
-    console.log(translations)
     const value = translations;
-    console.log(value)
     const path = filename
     // Fetch the file content from GitHub
     const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
@@ -584,9 +603,16 @@ app.put('/api/github/update', async (req, res) => {
       }
     });
 
-
     const updatedContent = stringify(content, { quotingType: '"', prettyErrors: true, lineWidth: 0, defaultStringType: 'QUOTE_DOUBLE', defaultKeyType: 'PLAIN' });
-    // console.log(updatedContent)
+
+    // Fetch the sha of file content from GitHub
+    const responseSha = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+      owner,
+      repo,
+      path,
+      ref: branch,
+    });
+    
 
     // Commit the updated file to the repository
     const response2 = await octokit.request('PUT /repos/{owner}/{repo}/contents/{path}', {
@@ -596,12 +622,11 @@ app.put('/api/github/update', async (req, res) => {
       branch,
       message: `Update translations for ${path}`,
       content: Buffer.from(updatedContent).toString('base64'),
-      sha: response.data.sha,
+      sha: responseSha.data.sha,
       headers: {
         'X-GitHub-Api-Version': '2022-11-28',
       },
     });
-    console.log(content);
     res.json(response2.data);
   } catch (error) {
     console.error('Error while updating the file:', error);
@@ -659,7 +684,7 @@ app.get('/api/github/changed', async (req, res) => {
     const pullsResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
       owner,
       repo,
-      head: branch,
+      head: `${owner}:${branch}`,
       base: 'main',
       headers: {
         'X-GitHub-Api-Version': '2022-11-28',
@@ -775,55 +800,139 @@ app.get('/api/github/changed', async (req, res) => {
   }
 });
 
-app.put('/api/github/pull', async (req, res) => {
-  const {repo, pullnumber} = req.body;
+app.put('/api/github/merge', async (req, res) => {
+  const { repo, branch } = req.body;
   const token = req.headers.authorization;
+  console.log("merge")
+
+  // Validate request parameters
+  if (!repo || !branch) {
+    return res.status(400).json({
+      error: 'Bad Request',
+      message: 'Both "repo" and "branch" fields are required in the request body.',
+    });
+  }
+
+  // Validate authorization token
+  if (!token) {
+    return res.status(401).json({
+      error: 'Unauthorized',
+      message: 'Authorization token is required in the headers.',
+    });
+  }
+
+  const owner = process.env.GITHUB_OWNER;
+  if (!owner) {
+    return res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'GitHub owner is not set in environment variables.',
+    });
+  }
+
   try {
     const octokit = new Octokit({ auth: token });
-    const response = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
-      owner: process.env.GITHUB_OWNER,
+
+    // Fetch all pull requests for the given repo and branch
+    const pullsResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
+      owner,
       repo,
-      pull_number : pullnumber,
+      head: `${owner}:${branch}`,
+      base: 'main',
       headers: {
-        'X-GitHub-Api-Version': '2022-11-28'
+        'X-GitHub-Api-Version': '2022-11-28',
       },
-      direction: process.env.GITHUB_BRANCH,
     });
-    if(response.data.mergeable){
-      const markReadyQuery = `
-        mutation($pullRequestId: ID!) {
-          markPullRequestReadyForReview(input: {pullRequestId: $pullRequestId}) {
-            pullRequest {
-              id
-              number
-              state
+
+    // Check if there are no pull requests for this branch
+    if (pullsResponse.data.length === 0) {
+      return res.status(404).json({
+        error: 'Not Found',
+        message: `No pull requests found for branch: ${branch}`,
+      });
+    }
+
+    // Get details of the first pull request for the branch
+    const pullRequest = pullsResponse.data[0];
+    const pullDetailsResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}', {
+      owner,
+      repo,
+      pull_number: pullRequest.number,
+      headers: {
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    });
+
+    // Check if the pull request is mergeable
+    if (pullDetailsResponse.data.mergeable) {
+      // If the pull request is in draft, mark it ready for review
+      if (pullDetailsResponse.data.draft) {
+        const markReadyQuery = `
+          mutation($pullRequestId: ID!) {
+            markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+              pullRequest {
+                id
+                number
+                state
+              }
             }
           }
-        }
-      `;
+        `;
+        const pullRequestId = pullDetailsResponse.data.node_id;
+        await octokit.graphql(markReadyQuery, { pullRequestId });
+      }
 
-      const pullRequestId = response.data.node_id;
-
-      const responserfr = await octokit.graphql(markReadyQuery, {
-        pullRequestId
-      });
+      // Merge the pull request
       const mergeResponse = await octokit.request('PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge', {
-        owner: process.env.GITHUB_OWNER,
+        owner,
         repo,
-        pull_number: pullnumber,
-        commit_title: 'Merge pull'+pullnumber,
-        commit_message: 'Add a new value to the merge_method',
+        pull_number: pullDetailsResponse.data.number,
+        commit_title: `Merge pull request #${pullDetailsResponse.data.number}`,
+        commit_message: 'Merging pull request',
         headers: {
-          'X-GitHub-Api-Version': '2022-11-28'
-        }
-      })
-      res.json(mergeResponse.data)
-    }else{
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+
+      // If the merge is successful, delete the branch
+      if (mergeResponse.data.merged) {
+        await octokit.request('DELETE /repos/{owner}/{repo}/git/refs/heads/{branch}', {
+          owner,
+          repo,
+          branch,
+          headers: {
+            'X-GitHub-Api-Version': '2022-11-28',
+          },
+        });
+
+        res.json({ message: 'Merge successful and branch deleted' });
+      } else {
+        res.status(400).json({
+          error: 'Merge Failed',
+          message: 'The merge operation could not be completed.',
+        });
+      }
+    } else {
+      res.status(400).json({
+        error: 'Not Mergeable',
+        message: 'The pull request is not mergeable. Please check for conflicts.',
+      });
     }
   } catch (error) {
     console.error('Error during merge:', error);
-    // console.log("______________________________________");
-    res.status(500).send('Server internal error');
+
+    if (error.response) {
+      // GitHub API-specific error handling
+      return res.status(error.response.status).json({
+        error: 'GitHub API Error',
+        message: error.response.data.message || 'Error occurred while communicating with the GitHub API.',
+      });
+    }
+
+    // Generic error handling
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'An unexpected error occurred during the merge process.',
+    });
   }
 });
 
