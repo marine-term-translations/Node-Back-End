@@ -38,7 +38,6 @@ app.get('/api/github/oauth/link', async (req, res) => {
   res.json({ client_id, scope });
 });
 
-
 app.post('/api/github/token', async (req, res) => {
   const { code } = req.body;
   const client_id = process.env.GITHUB_CLIENT_ID;
@@ -526,31 +525,6 @@ app.get('/api/github/conflicts', async (req, res) => {
   }
 });
 
-
-
-// // don't used
-// app.get('/api/github/list', async (req, res) => {
-//   const { repo, path, branch} = req.query;
-//   const token = req.headers.authorization;
-//   try{
-//     const octokit = new Octokit({
-//       auth: token
-//     });
-//     const response = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
-//       owner: process.env.GITHUB_OWNER,
-//       repo,
-//       path: path,
-//       ref: branch
-//     });
-//     const files = response.data.filter(item => item.type === 'file' && item.name.endsWith('.yml'));
-//     res.json(files);
-//   }catch (error){
-//     console.error('Error while retrieving file list', error);
-//     res.status(500).send('Server internal error');
-//   }
-// });
-
-// don't used
 app.get('/api/github/content', async (req, res) => {
   const { repo, path, branch} = req.query;
   const token = req.headers.authorization;
@@ -572,7 +546,6 @@ app.get('/api/github/content', async (req, res) => {
   }
 
 });
-
 
 // translations forma {[labelname] : {[language] : term, ...}, ...}
 app.put('/api/github/update', async (req, res) => {
@@ -680,7 +653,6 @@ app.put('/api/github/update', async (req, res) => {
   }
 });
 
-
 app.get('/api/github/changed', async (req, res) => {
   const { repo, branch } = req.query;
   const token = req.headers.authorization;
@@ -734,9 +706,8 @@ app.get('/api/github/changed', async (req, res) => {
       });
 
       // If the branch has no commits ahead of main, return success
-      // console.log(compareResponse.data);
       if (compareResponse.data.ahead_by === 0) {
-        return res.json({ compare: false, message: 'The branch has no changes to compare with main.' });
+        return res.json({ compare: true, message: 'The branch has no changes to compare with main.' });
       }
 
       // Create a new pull request if the branch has changes to compare
@@ -747,7 +718,7 @@ app.get('/api/github/changed', async (req, res) => {
         body: 'Please review and merge these changes from ' + branch,
         head: branch,
         base: 'main',
-        draft: true,  // Create as a draft PR
+        draft: true,
         headers: {
           'X-GitHub-Api-Version': '2022-11-28',
         },

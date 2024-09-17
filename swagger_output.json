@@ -11,6 +11,19 @@
     "http"
   ],
   "paths": {
+    "/api/github/oauth/link": {
+      "get": {
+        "description": "",
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/api/github/token": {
       "post": {
         "description": "",
@@ -150,6 +163,41 @@
         }
       }
     },
+    "/api/github/content": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          },
+          "500": {
+            "description": "Internal Server Error"
+          }
+        }
+      }
+    },
     "/api/github/update": {
       "put": {
         "description": "",
@@ -233,7 +281,7 @@
         }
       }
     },
-    "/api/github/pull": {
+    "/api/github/merge": {
       "put": {
         "description": "",
         "parameters": [
@@ -251,7 +299,7 @@
                 "repo": {
                   "example": "any"
                 },
-                "pullnumber": {
+                "branch": {
                   "example": "any"
                 }
               }
@@ -261,6 +309,15 @@
         "responses": {
           "200": {
             "description": "OK"
+          },
+          "400": {
+            "description": "Bad Request"
+          },
+          "401": {
+            "description": "Unauthorized"
+          },
+          "404": {
+            "description": "Not Found"
           },
           "500": {
             "description": "Internal Server Error"
