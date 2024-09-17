@@ -371,14 +371,47 @@ app.get('/api/github/conflicts', async (req, res) => {
     });
 
     // Compare main with the specified branch
-    const compareResponseMain = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+    let files;
+    const pullsResponse = await octokit.request('GET /repos/{owner}/{repo}/pulls', {
       owner,
       repo,
-      basehead: `main...${branch}`,
+      head: `${owner}:${branch}`,
+      base: 'main',
       headers: {
         'X-GitHub-Api-Version': '2022-11-28',
       },
     });
+    if (!pullsResponse.data.length) {
+      // Get the diff between main and the specified branch
+      const response = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+        owner,
+        repo,
+        basehead: `main...${branch}`,
+        headers: {
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+      files = response.data.files;
+    }else{
+      // Retrieve changed files in the pull request
+      const response = await octokit.request('GET /repos/{owner}/{repo}/pulls/{pull_number}/files', {
+        owner,
+        repo,
+        pull_number: pullsResponse.data[0].number,
+        headers: {
+          'X-GitHub-Api-Version': '2022-11-28',
+        },
+      });
+      files = response.data;
+    }
+    // const compareResponseMain = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
+    //   owner,
+    //   repo,
+    //   basehead: `main...${branch}`,
+    //   headers: {
+    //     'X-GitHub-Api-Version': '2022-11-28',
+    //   },
+    // });
 
     // Compare the specified branch with ldes_sync
     const compareResponseSync = await octokit.request('GET /repos/{owner}/{repo}/compare/{basehead}', {
@@ -391,7 +424,7 @@ app.get('/api/github/conflicts', async (req, res) => {
     });
 
     // Get filenames of modified files
-    const mainBranchFiles = compareResponseMain.data.files.map(file => file.filename);
+    const mainBranchFiles = files.map(file => file.filename);
     const syncBranchFiles = compareResponseSync.data.files.map(file => file.filename);
 
     // Find common files between the two comparisons
@@ -691,7 +724,7 @@ app.get('/api/github/changed', async (req, res) => {
       },
     });
 
-    // If there's no existing PR, check if the branch is behind the main branch
+    // If there's no existing PR, compare the branch with main
     if (!pullsResponse.data.length) {
       const compareResponse = await octokit.request('GET /repos/{owner}/{repo}/compare/{base}...{head}', {
         owner,
@@ -700,20 +733,21 @@ app.get('/api/github/changed', async (req, res) => {
         head: branch,
       });
 
-      // If the branch is not behind main, return success
-      if (compareResponse.data.behind_by === 0) {
-        return res.json({ compare: true });
+      // If the branch has no commits ahead of main, return success
+      // console.log(compareResponse.data);
+      if (compareResponse.data.ahead_by === 0) {
+        return res.json({ compare: false, message: 'The branch has no changes to compare with main.' });
       }
 
-      // Create a new pull request if the branch is behind
+      // Create a new pull request if the branch has changes to compare
       const createPullResponse = await octokit.request('POST /repos/{owner}/{repo}/pulls', {
         owner,
         repo,
-        title: 'Amazing new translations',
-        body: 'Please pull these awesome changes!',
+        title: 'New changes from ' + branch,
+        body: 'Please review and merge these changes from ' + branch,
         head: branch,
         base: 'main',
-        draft: true,
+        draft: true,  // Create as a draft PR
         headers: {
           'X-GitHub-Api-Version': '2022-11-28',
         },
@@ -738,16 +772,25 @@ app.get('/api/github/changed', async (req, res) => {
     // Retrieve diffs and file contents for each file
     const diffsData = await Promise.all(files.map(async file => {
       try {
+        // Get the content of the file before the changes (from main)
         const beforeResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
           owner,
           repo,
           path: file.filename,
+          ref: 'main',  // Refers to the main branch
         });
         const beforeContent = Buffer.from(beforeResponse.data.content, 'base64').toString('utf-8');
 
-        const afterResponse = await octokit.request(`GET ${file.contents_url}`);
+        // Get the content of the file after the changes (from the branch)
+        const afterResponse = await octokit.request('GET /repos/{owner}/{repo}/contents/{path}', {
+          owner,
+          repo,
+          path: file.filename,
+          ref: branch,  // Refers to the branch being compared
+        });
         const afterContent = Buffer.from(afterResponse.data.content, 'base64').toString('utf-8');
 
+        // Calculate the diff between the two versions of the file
         const diff = diffLines(beforeContent, afterContent);
 
         return {
