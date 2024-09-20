@@ -5,7 +5,7 @@ const doc = {
     title: 'API Documentation',
     description: 'API Description',
   },
-  host: 'localhost:5000',
+  host: `${process.env.GITHUB_CLIENT_ID}:5002`,
   schemes: ['http'],
 };
 
