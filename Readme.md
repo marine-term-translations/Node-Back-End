@@ -1,6 +1,6 @@
 # Backend Server
 
-This project connects a term translation website with files in a specified GitHub repository (link to [Demo_Repo_Translate_Term](https://github.com/yourusername/Demo_Repo_Translate_Term)).
+This project connects a term translation website with files in a specified GitHub repository (link to [Demo_Repo_Translate_Term](https://github.com/marine-term-translations/Demo_Repo_Translate_Term)).
 This backend server using Express, Axios, CORS, Dotenv, and Octokit to interact with the GitHub API. The server provides several endpoints for managing GitHub OAuth tokens, retrieving file content, listing YAML files, updating translations, and managing pull requests.
 
 ## Getting Started
@@ -17,7 +17,7 @@ Make sure you have the following tools installed on your machine:
 1. **Clone the Repository**  
    First, clone the repository to your local machine:
    ```bash
-   git clone https://github.com/yourusername/project-repo.git
+   git clone https://github.com/marine-term-translations/Back-End.git
    cd project-repo
    ```
 
@@ -36,7 +36,7 @@ Make sure you have the following tools installed on your machine:
 4. **Check Deployment**  
    After deployment, you can verify that the server is running by accessing:
    ```
-   http://(Your-back-end-url):5002/api-docs
+   https://[Your-back-end-url]:5002/api-docs
    ```
 
 ## API Documentation
@@ -334,7 +334,7 @@ This project includes a Swagger-based API documentation for connecting the trans
    Adds a comment to a specified line in a pull request.
 
    **Description:**  
-   This endpoint allows users to post a comment on a specific line in a pull request. It requires the pull request number and the specific line details where the comment should be added.
+   This endpoint allows users to post a comment on a specific line in a pull request. It requires the pull request number and the specific line details where the comment should be added. **Note: This feature is currently in development and is not yet in use.**
 
    **Request Body:**
    ```json
@@ -369,4 +369,4 @@ To run the backend locally:
 node serveur.js
 ```
 
-The server runs on `http://localhost:5002`, and the API can be accessed via the `/api/github` path.
+The server runs on `http://[Your-back-end-url]:5002`, and the API can be accessed via the `/api/github` path. Additionally, you can view the API documentation at the Swagger page available at `/api-docs`.
