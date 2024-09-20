@@ -47,7 +47,6 @@ This project includes a Swagger-based API documentation for connecting the trans
 
 ### Endpoints
 
-
 1. **GET /api/github/oauth/link**  
    Fetches the OAuth link for GitHub authentication.
 
