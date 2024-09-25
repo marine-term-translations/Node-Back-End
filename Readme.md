@@ -64,7 +64,7 @@ This project includes a Swagger-based API documentation for connecting the trans
    - `500`: Internal Server Error  
      Occurs when the GitHub Client ID is missing in the environment variables. The error message will specify that the `GITHUB_CLIENT_ID` is not set.
 
-2. #### **POST /api/github/token**  
+#### 2. **POST /api/github/token**  
    Exchanges a GitHub OAuth authorization code for an access token.
 
    ##### **Description:**  
@@ -83,19 +83,19 @@ This project includes a Swagger-based API documentation for connecting the trans
    - `504`: Gateway Timeout
      Occurs if no response is received from the GitHub API.
 
-3. **GET /api/github/branches**  
+#### 3. **GET /api/github/branches**  
    Retrieves the branches from the specified GitHub repository that match a specified prefix.
 
-   **Description:**  
+   ##### **Description:**  
    This endpoint fetches branches from a GitHub repository and filters them based on a prefix defined in the environment variable `GITHUB_KEY_BRANCH`. For each branch, it also retrieves the date of the latest commit.
 
-   **Query Parameters:**
+   ##### **Query Parameters:**
    - `repo`: (string) GitHub repository name, required.
 
-   **Headers:**
+   ##### **Headers:**
    - `Authorization`: (string) GitHub OAuth token, required.
 
-   **Responses:**
+   ##### **Responses:**
    - `200`: OK  
      Returns an array of branches with their latest commit date.  
      ```json
@@ -114,20 +114,20 @@ This project includes a Swagger-based API documentation for connecting the trans
      Occurs if there are missing environment variables (`GITHUB_OWNER`, `GITHUB_KEY_BRANCH`) or if an internal error occurs during branch retrieval.
    - GitHub API errors are returned with the appropriate status code and error message.
 
-4. **GET /api/github/diff**  
+#### 4. **GET /api/github/diff**  
    Retrieves the differences between the `main` branch and a specified branch, including the content of the changed files.
 
-   **Description:**  
+   ##### **Description:**  
    This endpoint fetches the differences between the `main` branch and a specified branch in a GitHub repository. If a pull request exists for the specified branch, it fetches the changed files in the pull request. Otherwise, it compares the `main` branch and the specified branch directly. The response includes the content of each changed file.
 
-   **Query Parameters:**
+   ##### **Query Parameters:**
    - `repo`: (string) GitHub repository name, required.
    - `branch`: (string) Branch name, required.
 
-   **Headers:**
+   ##### **Headers:**
    - `Authorization`: (string) GitHub OAuth token, required.
 
-   **Responses:**
+   ##### **Responses:**
    - `200`: OK  
      Returns an array of files with their content and filename.  
      ```json
@@ -149,20 +149,20 @@ This project includes a Swagger-based API documentation for connecting the trans
      Occurs if the environment variable `GITHUB_OWNER` is missing, if an internal error occurs during the retrieval of the diff, or if the content of a file cannot be retrieved.
    - GitHub API errors are returned with the appropriate status code and error message.
 
-5. **GET /api/github/conflicts**  
+#### 5. **GET /api/github/conflicts**  
    Detects translation conflicts between a specified branch and the `ldes_sync` branch in a GitHub repository.
 
-   **Description:**  
+   ##### **Description:**  
    This endpoint compares translation files between a specified branch and the `ldes_sync` branch. It identifies any conflicts in the translation labels and returns a list of files with conflicting translations, including the differences in values.
 
-   **Query Parameters:**
+   ##### **Query Parameters:**
    - `repo`: (string) GitHub repository name, required.
    - `branch`: (string) Branch name, required.
 
-   **Headers:**
+   ##### **Headers:**
    - `Authorization`: (string) GitHub OAuth token, required.
 
-   **Responses:**
+   ##### **Responses:**
    - `200`: OK  
      Returns a list of files with conflicts in translations, if any.  
      ```json
@@ -189,21 +189,21 @@ This project includes a Swagger-based API documentation for connecting the trans
    - `500`: Internal Server Error  
      Occurs if there is an issue retrieving the content or any other unexpected error.
 
-6. **GET /api/github/content**  
+#### 6. **GET /api/github/content**  
    Retrieves the content of a specified file from a GitHub repository.
 
-   **Description:**  
+   ##### **Description:**  
    This endpoint fetches the content of a file located in a specific branch of a GitHub repository. The content is returned in a parsed format.
 
-   **Query Parameters:**
+   ##### **Query Parameters:**
    - `repo`: (string) GitHub repository name, required.
    - `path`: (string) File path in the repository, required.
    - `branch`: (string) Branch name, required.
 
-   **Headers:**
+   ##### **Headers:**
    - `Authorization`: (string) GitHub OAuth token, required.
 
-   **Responses:**
+   ##### **Responses:**
    - `200`: OK  
      Returns the parsed content of the specified file.  
      ```json
@@ -218,13 +218,13 @@ This project includes a Swagger-based API documentation for connecting the trans
    - `500`: Internal Server Error  
      Occurs if there is an issue retrieving the file content or any other unexpected error.
 
-7. **PUT /api/github/update**  
+#### 7. **PUT /api/github/update**  
    Updates the translations in a specified file within a GitHub repository.
 
-   **Description:**  
+   ##### **Description:**  
    This endpoint updates the translations for labels in a specified file located in a specific branch of a GitHub repository.
 
-   **Request Body:**
+   ##### **Request Body:**
    ```json
    {
      "repo": "repository_name",
@@ -238,10 +238,10 @@ This project includes a Swagger-based API documentation for connecting the trans
    }
    ```
 
-   **Headers:**
+   ##### **Headers:**
    - `Authorization`: (string) GitHub OAuth token, required.
 
-   **Responses:**
+   ##### **Responses:**
    - `200`: OK  
      Returns the updated file details.  
      ```json
@@ -257,20 +257,20 @@ This project includes a Swagger-based API documentation for connecting the trans
    - `500`: Internal Server Error  
      Occurs if there is an issue updating the file or any other unexpected error.
 
-8. **GET /api/github/changed**  
+#### 8. **GET /api/github/changed**  
    Retrieves the changed files and comments from a pull request or compares a branch with the main branch if no pull request exists.
 
-   **Description:**  
+   ##### **Description:**  
    This endpoint checks for changes in a specified branch compared to the main branch. If there are changes and no pull request exists, it creates one and retrieves the changed files and their diffs.
 
-   **Query Parameters:**
+   ##### **Query Parameters:**
    - `repo`: (string) The name of the repository.
    - `branch`: (string) The name of the branch to compare.
 
-   **Headers:**
+   ##### **Headers:**
    - `Authorization`: (string) GitHub OAuth token, required.
 
-   **Responses:**
+   ##### **Responses:**
    - `200`: OK  
      Returns the diffs and comments for the changed files.
      ```json
@@ -302,13 +302,13 @@ This project includes a Swagger-based API documentation for connecting the trans
    - `500`: Internal Server Error  
      Occurs if there is an issue retrieving changed files or any other unexpected error.
 
-9. **PUT /api/github/merge**  
+#### 9. **PUT /api/github/merge**  
    Merges a pull request for a specified branch into the main branch and deletes the branch if the merge is successful.
 
-   **Description:**  
+   ##### **Description:**  
    This endpoint checks if a pull request exists for the specified branch and attempts to merge it into the main branch. If the merge is successful, the branch is deleted.
 
-   **Request Body:**
+   ##### **Request Body:**
    ```json
    {
      "repo": "repository_name",
@@ -316,10 +316,10 @@ This project includes a Swagger-based API documentation for connecting the trans
    }
    ```
 
-   **Headers:**
+   ##### **Headers:**
    - `Authorization`: (string) GitHub OAuth token, required.
 
-   **Responses:**
+   ##### **Responses:**
    - `200`: OK  
      Returns a success message if the merge was successful and the branch was deleted.
      ```json
@@ -334,13 +334,13 @@ This project includes a Swagger-based API documentation for connecting the trans
    - `500`: Internal Server Error  
      Occurs if there is an issue during the merge process or any other unexpected error.
 
-10. **POST /api/github/comment**  
+#### 10. **POST /api/github/comment**  
    Adds a comment to a specified line in a pull request.
 
-   **Description:**  
+   ##### **Description:**  
    This endpoint allows users to post a comment on a specific line in a pull request. It requires the pull request number and the specific line details where the comment should be added. **Note: This feature is currently in development and is not yet in use.**
 
-   **Request Body:**
+   ##### **Request Body:**
    ```json
    {
      "token": "your_github_token",
@@ -354,7 +354,7 @@ This project includes a Swagger-based API documentation for connecting the trans
    }
    ```
 
-   **Responses:**
+   ##### **Responses:**
    - `200`: OK  
      Returns the details of the created comment.
      ```json
