@@ -21,19 +21,21 @@ Make sure you have the following tools installed on your machine:
    cd project-repo
    ```
 
-2. **Build the Docker Image**  
+2. **Change environment **
+
+3. **Build the Docker Image**  
    Build the project Docker image locally:
    ```bash
    docker compose build
    ```
 
-3. **Run Docker Compose**  
+4. **Run Docker Compose**  
    Deploy the server using Docker Compose:
    ```bash
    docker-compose up -d
    ```
 
-4. **Check Deployment**  
+5. **Check Deployment**  
    After deployment, you can verify that the server is running by accessing:
    ```
    https://[Your-back-end-url]:5002/api-docs
