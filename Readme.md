@@ -52,28 +52,28 @@ This project includes a Swagger-based API documentation for connecting the trans
 
 ### Endpoints
 
-1. **GET /api/github/oauth/link**  
+#### 1. **GET /api/github/oauth/link**  
    Fetches the OAuth link for GitHub authentication.  
 
-   #### **Description:**  
+   ##### **Description:**  
    This endpoint returns the necessary GitHub OAuth link for user authentication.  
 
-   #### **Responses:**
+   ##### **Responses:**
    - `200`: OK  
      Returns the GitHub `client_id` and required `scope` for the OAuth process.
    - `500`: Internal Server Error  
      Occurs when the GitHub Client ID is missing in the environment variables. The error message will specify that the `GITHUB_CLIENT_ID` is not set.
 
-2. **POST /api/github/token**  
+2. #### **POST /api/github/token**  
    Exchanges a GitHub OAuth authorization code for an access token.
 
-   #### **Description:**  
+   ##### **Description:**  
    This endpoint accepts a GitHub OAuth authorization code and returns the associated access token.
 
-   #### **Body Parameters:**
+   ##### **Body Parameters:**
    - `code`: (string) GitHub OAuth authorization code, required.
 
-   #### **Responses:**
+   ##### **Responses:**
    - `200`: OK
      Returns the GitHub OAuth access token.
    - `400`: Bad Request
@@ -86,16 +86,16 @@ This project includes a Swagger-based API documentation for connecting the trans
 3. **GET /api/github/branches**  
    Retrieves the branches from the specified GitHub repository that match a specified prefix.
 
-   #### **Description:**  
+   **Description:**  
    This endpoint fetches branches from a GitHub repository and filters them based on a prefix defined in the environment variable `GITHUB_KEY_BRANCH`. For each branch, it also retrieves the date of the latest commit.
 
-   #### **Query Parameters:**
+   **Query Parameters:**
    - `repo`: (string) GitHub repository name, required.
 
-   #### **Headers:**
+   **Headers:**
    - `Authorization`: (string) GitHub OAuth token, required.
 
-   #### **Responses:**
+   **Responses:**
    - `200`: OK  
      Returns an array of branches with their latest commit date.  
      ```json
@@ -117,7 +117,7 @@ This project includes a Swagger-based API documentation for connecting the trans
 4. **GET /api/github/diff**  
    Retrieves the differences between the `main` branch and a specified branch, including the content of the changed files.
 
-   #### **Description:**  
+   **Description:**  
    This endpoint fetches the differences between the `main` branch and a specified branch in a GitHub repository. If a pull request exists for the specified branch, it fetches the changed files in the pull request. Otherwise, it compares the `main` branch and the specified branch directly. The response includes the content of each changed file.
 
    **Query Parameters:**
