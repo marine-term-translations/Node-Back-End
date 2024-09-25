@@ -4,4 +4,3 @@
 .env.development.local
 .vscode
 draft.*
-env_vars.txt
