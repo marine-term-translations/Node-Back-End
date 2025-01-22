@@ -49,7 +49,7 @@ fi
 
 # Step 5: Rebuild and restart the Docker Compose services
 echo "Rebuilding and restarting services from $COMPOSE_FILE..."
-docker-compose -f "$COMPOSE_FILE" up --build -d
+docker compose -f "$COMPOSE_FILE" up --build -d
 
 # Final message
 echo "Docker Compose services have been restarted."
