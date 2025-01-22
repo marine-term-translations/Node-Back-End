@@ -31,7 +31,15 @@ else
   echo "The container $TARGET_CONTAINER is not running."
 fi
 
-# Step 3: Remove the image associated with node_server_backend
+# Step 3: Remove the node_server_backend container if it exists
+if docker ps -a --format "{{.Names}}" | grep -q "$TARGET_CONTAINER"; then
+  echo "Removing the container: $TARGET_CONTAINER"
+  docker rm "$TARGET_CONTAINER"
+else
+  echo "The container $TARGET_CONTAINER does not exist."
+fi
+
+# Step 4: Remove the image associated with node_server_backend
 if docker images --format "{{.Repository}}" | grep -q "$TARGET_IMAGE"; then
   echo "Removing the image: $TARGET_IMAGE"
   docker rmi "$TARGET_IMAGE" --force
@@ -39,9 +47,9 @@ else
   echo "The image $TARGET_IMAGE does not exist."
 fi
 
-# Step 4: Rebuild and restart the Docker Compose services
+# Step 5: Rebuild and restart the Docker Compose services
 echo "Rebuilding and restarting services from $COMPOSE_FILE..."
-docker compose -f "$COMPOSE_FILE" up --build -d
+docker-compose -f "$COMPOSE_FILE" up --build -d
 
 # Final message
 echo "Docker Compose services have been restarted."
