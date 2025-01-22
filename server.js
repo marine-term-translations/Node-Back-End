@@ -249,8 +249,19 @@ app.get("/api/github/branches", async (req, res) => {
 });
 
 app.get("/api/github/tree", async (req, res) => {
-  const { owner, repo, branch } = req.query;
+  const { repo, branch } = req.query;
   const token = req.headers.authorization;
+
+  // Validate GITHUB_OWNER and GITHUB_KEY_BRANCH environment variables
+  const owner = process.env.GITHUB_OWNER;
+
+  if (!owner) {
+    console.error("GitHub owner is missing in environment variables.");
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "GitHub owner is not set in environment variables.",
+    });
+  }
 
   // Validate token
   if (!token) {
@@ -261,7 +272,7 @@ app.get("/api/github/tree", async (req, res) => {
   }
 
   // Validate required query parameters
-  if (!owner || !repo || !branch) {
+  if (!repo || !branch) {
     return res.status(400).json({
       error: "Bad Request",
       message:
