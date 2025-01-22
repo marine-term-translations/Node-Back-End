@@ -2,9 +2,6 @@
 
 # Name of the Docker Compose file
 COMPOSE_FILE="docker-compose.yml"
-
-# Container and service details
-TARGET_CONTAINER="node_server_backend"
 TARGET_IMAGE="node-back-end-node_server_backend"
 
 # Check if the Compose file exists
@@ -13,31 +10,28 @@ if [[ ! -f $COMPOSE_FILE ]]; then
   exit 1
 fi
 
-# Step 1: Check for running containers from the Docker Compose file
-RUNNING_CONTAINERS=$(docker ps --format "{{.Names}}" | grep -E "(node_server_backend|backend_proxy)")
+# Step 1: List all containers created by the Docker Compose file
+echo "Checking for running containers defined by $COMPOSE_FILE..."
 
-if [[ -n $RUNNING_CONTAINERS ]]; then
+# Get the list of container names from the Compose file
+CONTAINER_NAMES=$(docker ps --format "{{.Names}}" | grep -E "^(node_server_backend|backend_proxy)")
+
+if [[ -n "$CONTAINER_NAMES" ]]; then
   echo "The following containers are running from $COMPOSE_FILE:"
-  echo "$RUNNING_CONTAINERS"
+  echo "$CONTAINER_NAMES"
 else
   echo "No containers from $COMPOSE_FILE are currently running."
 fi
 
-# Step 2: Stop the node_server_backend container if it's running
-if docker ps --format "{{.Names}}" | grep -q "$TARGET_CONTAINER"; then
-  echo "Stopping the container: $TARGET_CONTAINER"
-  docker stop "$TARGET_CONTAINER"
-else
-  echo "The container $TARGET_CONTAINER is not running."
-fi
+# Step 2: Stop and remove all containers created by the Docker Compose file
+for CONTAINER in $CONTAINER_NAMES; do
+  echo "Stopping and removing container: $CONTAINER"
+  docker stop "$CONTAINER"
+  docker rm "$CONTAINER"
+done
 
-# Step 3: Remove the node_server_backend container if it exists
-if docker ps -a --format "{{.Names}}" | grep -q "$TARGET_CONTAINER"; then
-  echo "Removing the container: $TARGET_CONTAINER"
-  docker rm "$TARGET_CONTAINER"
-else
-  echo "The container $TARGET_CONTAINER does not exist."
-fi
+# Step 3: Remove the images associated with the containers
+echo "Removing images created by the Docker Compose file..."
 
 # Step 4: Remove the image associated with node_server_backend
 if docker images --format "{{.Repository}}" | grep -q "$TARGET_IMAGE"; then
