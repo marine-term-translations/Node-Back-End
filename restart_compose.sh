@@ -5,7 +5,7 @@ COMPOSE_FILE="docker-compose.yml"
 
 # Container and service details
 TARGET_CONTAINER="node_server_backend"
-TARGET_IMAGE="node_server_backend"
+TARGET_IMAGE="node-back-end-node_server_backend"
 
 # Check if the Compose file exists
 if [[ ! -f $COMPOSE_FILE ]]; then
