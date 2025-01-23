@@ -5,10 +5,10 @@
     "description": "API Description",
     "version": "1.0.0"
   },
-  "host": "undefined:5002",
+  "host": "docker-dev.vliz.be:5002",
   "basePath": "/",
   "schemes": [
-    "http"
+    "https"
   ],
   "paths": {
     "/api/github/oauth/link": {
