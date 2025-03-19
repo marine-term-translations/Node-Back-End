@@ -150,10 +150,10 @@ This project includes a Swagger-based API documentation for connecting the trans
    - GitHub API errors are returned with the appropriate status code and error message.
 
 #### 5. **GET /api/github/conflicts**  
-   Detects translation conflicts between a specified branch and the `ldes_sync` branch in a GitHub repository.
+   Detects translation conflicts between a specified branch and the `main` branch in a GitHub repository.
 
    ##### **Description:**  
-   This endpoint compares translation files between a specified branch and the `ldes_sync` branch. It identifies any conflicts in the translation labels and returns a list of files with conflicting translations, including the differences in values.
+   This endpoint compares translation files between a specified branch and the `main` branch. It identifies any conflicts in the translation labels and returns a list of files with conflicting translations, including the differences in values.
 
    ##### **Query Parameters:**
    - `repo`: (string) GitHub repository name, required.

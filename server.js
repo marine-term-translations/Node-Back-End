@@ -558,13 +558,13 @@ app.get("/api/github/conflicts", async (req, res) => {
     //   },
     // });
 
-    // Compare the specified branch with ldes_sync
+    // Compare the specified branch with main
     const compareResponseSync = await octokit.request(
       "GET /repos/{owner}/{repo}/compare/{basehead}",
       {
         owner,
         repo,
-        basehead: `${branch}...ldes_sync`,
+        basehead: `${branch}...main`,
         headers: {
           "X-GitHub-Api-Version": "2022-11-28",
         },
@@ -591,14 +591,14 @@ app.get("/api/github/conflicts", async (req, res) => {
     const conflictslist = await Promise.all(
       commonFiles.map(async (filename) => {
         try {
-          // Get content of the file in the ldes_sync branch
+          // Get content of the file in the main branch
           const contentResponseSync = await octokit.request(
             "GET /repos/{owner}/{repo}/contents/{path}",
             {
               owner,
               repo,
               path: filename,
-              ref: "ldes_sync",
+              ref: "main",
             }
           );
           const contentSync = Buffer.from(
