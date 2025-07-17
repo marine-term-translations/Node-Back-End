@@ -1,3 +1,5 @@
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/marine-term-translations/Node-Back-End?utm_source=oss&utm_medium=github&utm_campaign=marine-term-translations%2FNode-Back-End&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+
 # Backend Server
 
 This project connects a term translation website with files in a specified GitHub repository (link to [Demo_Repo_Translate_Term](https://github.com/marine-term-translations/Demo_Repo_Translate_Term)).
