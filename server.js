@@ -1257,9 +1257,9 @@ app.post("/api/translation/suggestions", async (req, res) => {
   }
 
   try {
-    const { text } = await translate(text, { to: target });
-    console.log(text);
-    res.json({ translatedText: text });
+    const { translated_text } = await translate(text, { to: target });
+    console.log(translated_text);
+    res.json({ translatedText: translated_text });
   } catch (error) {
     console.error("Error during translation:", error);
     res.status(500).json({
