@@ -4,3 +4,4 @@
 .env.development.local
 .vscode
 draft.*
+.env
