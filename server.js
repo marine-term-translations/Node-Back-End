@@ -1245,6 +1245,28 @@ app.post("/api/github/comment", async (req, res) => {
 });
 
 // Section start for google translations
+app.post("/api/translation/suggestions", async (req, res) => {
+  const { text, target } = req.body;
+  if (!text || !target) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: '"text" and "target" fields are required in the request body.',
+    });
+  }
+  try {
+    const response = await axios.post(
+      `https://translation.googleapis.com/language/translate/v2?key=${process.env.GOOGLE_API_KEY}`,
+      {
+        q: text,
+        target: target,
+      }
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error while fetching translation suggestions:", error);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 app.listen(port, () => {
   console.log(`Serveur backend en écoute sur http://localhost:${port}`);
