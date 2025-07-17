@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { Octokit } from "octokit";
 import { parse, stringify } from "yaml";
 import { diffLines } from "diff";
+import { translate } from "@vitalets/google-translate-api";
 
 import swaggerUi from "swagger-ui-express";
 import swaggerFile from "./swagger_output.json" assert { type: "json" };
@@ -1246,6 +1247,7 @@ app.post("/api/github/comment", async (req, res) => {
 
 // Section start for google translations
 app.post("/api/translation/suggestions", async (req, res) => {
+  console.log(req.body);
   const { text, target } = req.body;
   if (!text || !target) {
     return res.status(400).json({
@@ -1253,23 +1255,22 @@ app.post("/api/translation/suggestions", async (req, res) => {
       message: '"text" and "target" fields are required in the request body.',
     });
   }
+
   try {
-    const response = await axios.post(
-      `https://translation.googleapis.com/language/translate/v2?key=${process.env.GOOGLE_API_KEY}`,
-      {
-        q: text,
-        target: target,
-      }
-    );
-    res.json(response.data);
+    const { text } = await translate(text, { to: target });
+    console.log(text);
+    res.json({ translatedText: text });
   } catch (error) {
-    console.error("Error while fetching translation suggestions:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    console.error("Error during translation:", error);
+    res.status(500).json({
+      error: "Translation Error",
+      message: "An error occurred while translating the text.",
+    });
   }
 });
 
 app.listen(port, () => {
-  console.log(`Serveur backend en écoute sur http://localhost:${port}`);
+  console.log(`Backend server listening to http://localhost:${port}`);
   // console.log(`Domain's name is : ${process.env.DOMAIN_NAME}`);
   console.log(`Client ID is : ${process.env.GITHUB_CLIENT_ID}`);
 });
