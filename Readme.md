@@ -367,6 +367,92 @@ This project includes a Swagger-based API documentation for connecting the trans
    - `500`: Internal Server Error  
      Occurs if there is an issue with the request or any unexpected error.
 
+#### 11. **GET /api/github/pr/:prNumber/file/:filePath/approved**  
+   Checks if a specific file in a pull request has been approved by any of the designated reviewers.
+
+   ##### **Description:**  
+   This endpoint reads the `reviewers.txt` file from the main branch, parses it as JSON, and checks if any of the designated reviewers have posted an "approved" comment on the specified file in the given pull request.
+
+   ##### **Path Parameters:**
+   - `prNumber`: (number) Pull request number, required.
+   - `filePath`: (string) File path in the repository (URL encoded if contains special characters), required.
+
+   ##### **Query Parameters:**
+   - `repo`: (string) GitHub repository name, required.
+
+   ##### **Headers:**
+   - `Authorization`: (string) GitHub OAuth token, required.
+
+   ##### **Responses:**
+   - `200`: OK  
+     Returns approval status and metadata.
+     ```json
+     // If approved:
+     {
+       "approved": true,
+       "reviewer": "reviewer_username",
+       "timestamp": "2023-08-14T12:00:00Z",
+       "comment_id": 123456,
+       "comment_url": "https://github.com/owner/repo/pull/123#discussion_r123456"
+     }
+     
+     // If not approved:
+     {
+       "approved": false,
+       "eligible_reviewers": ["reviewer1", "reviewer2"],
+       "checked_file": "path/to/file.txt"
+     }
+     ```
+   - `400`: Bad Request  
+     Occurs if required parameters are missing or invalid.
+   - `401`: Unauthorized  
+     Occurs if the `Authorization` header is missing.
+   - `404`: Not Found  
+     Occurs if the `reviewers.txt` file is not found in the main branch.
+   - `500`: Internal Server Error  
+     Occurs if there are issues reading/parsing `reviewers.txt` or unexpected errors.
+
+#### 12. **POST /api/github/pr/:prNumber/file/:filePath/approve**  
+   Adds an "approved" comment to a specific file in a pull request.
+
+   ##### **Description:**  
+   This endpoint posts a comment with the text "approved" on the specified file in the given pull request. The comment is associated with a specific commit SHA.
+
+   ##### **Path Parameters:**
+   - `prNumber`: (number) Pull request number, required.
+   - `filePath`: (string) File path in the repository (URL encoded if contains special characters), required.
+
+   ##### **Request Body:**
+   ```json
+   {
+     "repo": "repository_name",
+     "sha": "commit_sha"
+   }
+   ```
+
+   ##### **Headers:**
+   - `Authorization`: (string) GitHub OAuth token, required.
+
+   ##### **Responses:**
+   - `200`: OK  
+     Returns confirmation of the created approval comment.
+     ```json
+     {
+       "success": true,
+       "comment_id": 123456,
+       "comment_url": "https://github.com/owner/repo/pull/123#discussion_r123456",
+       "timestamp": "2023-08-14T12:00:00Z",
+       "file_path": "path/to/file.txt",
+       "commenter": "authenticated_user"
+     }
+     ```
+   - `400`: Bad Request  
+     Occurs if required parameters are missing or invalid.
+   - `401`: Unauthorized  
+     Occurs if the `Authorization` header is missing.
+   - `500`: Internal Server Error  
+     Occurs if there are issues with the GitHub API or unexpected errors.
+
 ### Running Locally
 
 To run the backend locally:
