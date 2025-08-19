@@ -371,7 +371,7 @@ This project includes a Swagger-based API documentation for connecting the trans
    Checks if a specific file in a pull request has been approved by any of the designated reviewers.
 
    ##### **Description:**  
-   This endpoint reads the `reviewers.txt` file from the main branch, parses it as JSON, and checks if any of the designated reviewers have posted an "approved" comment on the specified file in the given pull request.
+   This endpoint reads the `reviewers.json` file from the main branch, parses it as JSON, and checks if any of the designated reviewers have posted an "approved" comment on the specified file in the given pull request.
 
    ##### **Path Parameters:**
    - `prNumber`: (number) Pull request number, required.
@@ -408,9 +408,9 @@ This project includes a Swagger-based API documentation for connecting the trans
    - `401`: Unauthorized  
      Occurs if the `Authorization` header is missing.
    - `404`: Not Found  
-     Occurs if the `reviewers.txt` file is not found in the main branch.
+     Occurs if the `reviewers.json` file is not found in the main branch.
    - `500`: Internal Server Error  
-     Occurs if there are issues reading/parsing `reviewers.txt` or unexpected errors.
+     Occurs if there are issues reading/parsing `reviewers.json` or unexpected errors.
 
 #### 12. **POST /api/github/pr/:prNumber/file/:filePath/approve**  
    Adds an "approved" comment to a specific file in a pull request.

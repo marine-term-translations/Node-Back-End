@@ -1,5 +1,0 @@
-[
-  {"reviewer1": "additional_metadata1"},
-  {"reviewer2": "additional_metadata2"},
-  {"maxime-albert": "lead_reviewer"}
-]

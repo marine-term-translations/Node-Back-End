@@ -1297,7 +1297,7 @@ app.get("/api/github/pr/:prNumber/file/:filePath/approved", async (req, res) => 
     // Decode the file path in case it was URL encoded
     const decodedFilePath = decodeURIComponent(filePath);
 
-    // Read reviewers.txt from main branch
+    // Read reviewers.json from main branch
     let reviewers = [];
     try {
       const reviewersResponse = await octokit.request(
@@ -1305,7 +1305,7 @@ app.get("/api/github/pr/:prNumber/file/:filePath/approved", async (req, res) => 
         {
           owner,
           repo,
-          path: "reviewers.txt",
+          path: "reviewers.json",
           ref: "main",
         }
       );
@@ -1321,18 +1321,18 @@ app.get("/api/github/pr/:prNumber/file/:filePath/approved", async (req, res) => 
         throw new Error("Reviewers file must contain an array of objects");
       }
     } catch (reviewersError) {
-      // Handle missing or invalid reviewers.txt
+      // Handle missing or invalid reviewers.json
       if (reviewersError.status === 404) {
         return res.status(404).json({
           error: "Reviewers Not Found",
-          message: "reviewers.txt file not found in the main branch.",
+          message: "reviewers.json file not found in the main branch.",
         });
       }
       
-      console.error("Error reading reviewers.txt:", reviewersError);
+      console.error("Error reading reviewers.json:", reviewersError);
       return res.status(500).json({
         error: "Internal Server Error",
-        message: "Error reading or parsing reviewers.txt file.",
+        message: "Error reading or parsing reviewers.json file.",
       });
     }
 
@@ -1345,7 +1345,7 @@ app.get("/api/github/pr/:prNumber/file/:filePath/approved", async (req, res) => 
     if (reviewerUsernames.length === 0) {
       return res.status(400).json({
         error: "Bad Request",
-        message: "No valid reviewers found in reviewers.txt.",
+        message: "No valid reviewers found in reviewers.json.",
       });
     }
 
