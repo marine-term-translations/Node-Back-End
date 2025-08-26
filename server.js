@@ -1398,11 +1398,11 @@ app.get(
 
       console.log(fileContent);
 
-      // Extract lines containing "-name"
+      // Extract lines containing "- name"
       const linesWithName = fileContent
         .split("\n")
         .map((line, index) => ({ line, index: index + 1 }))
-        .filter(({ line }) => line.includes("-name"));
+        .filter(({ line }) => line.includes("- name"));
 
       console.log(linesWithName);
 
