@@ -1324,7 +1324,7 @@ app.get(
   "/api/github/pr/:prNumber/file/:filePath/approved",
   async (req, res) => {
     const { prNumber, filePath } = req.params;
-    const { repo } = req.query;
+    const { repo, branch } = req.query;
     const token = req.headers.authorization;
 
     // Validate token
@@ -1380,7 +1380,7 @@ app.get(
           owner,
           repo,
           path: decodedFilePath,
-          ref: "main",
+          ref: branch || "main",
         }
       );
 
