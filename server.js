@@ -1346,7 +1346,7 @@ app.get("/api/github/reviewers", async (req, res) => {
     const reviewersResponse = await octokit.request(
       "GET /repos/{owner}/{repo}/contents/{path}",
       {
-        owner,
+        owner: process.env.GITHUB_OWNER,
         repo,
         path: "reviewers.json",
         ref: "main",
