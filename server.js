@@ -1523,6 +1523,7 @@ app.post(
     // get the contents of the file to approve first
     // do the api/git/content call
     try {
+      const decodedFilePath = decodeURIComponent(filePath);
       const response = await octokit.request(
         "GET /repos/{owner}/{repo}/contents/{path}",
         {
