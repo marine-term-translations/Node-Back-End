@@ -1396,8 +1396,6 @@ app.get(
         "base64"
       ).toString("utf-8");
 
-      console.log(fileContent);
-
       // Extract lines containing "- name"
       const linesWithName = fileContent
         .split("\n")
@@ -1429,7 +1427,7 @@ app.get(
         const hasApproval = comments.some(
           (comment) =>
             comment.path === decodedFilePath &&
-            comment.position === index &&
+            comment.line === index &&
             comment.body.trim().toLowerCase() === "approved"
         );
 
