@@ -1454,7 +1454,7 @@ app.post(
   "/api/github/pr/:prNumber/file/:filePath/approve",
   async (req, res) => {
     const { prNumber, filePath } = req.params;
-    const { repo, sha } = req.body;
+    const { repo, sha, lang, label_name } = req.body;
     const token = req.headers.authorization;
 
     // Validate token
@@ -1494,6 +1494,20 @@ app.post(
       });
     }
 
+    if (!lang) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: 'The "lang" field is required in the request body.',
+      });
+    }
+
+    if (!label_name) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: 'The "label_name" field is required in the request body.',
+      });
+    }
+
     // Validate environment variables
     const owner = process.env.GITHUB_OWNER;
     if (!owner) {
@@ -1504,51 +1518,95 @@ app.post(
       });
     }
 
+    const octokit = new Octokit({ auth: token });
+
+    // get the contents of the file to approve first
+    // do the api/git/content call
     try {
-      const octokit = new Octokit({ auth: token });
-
-      // Decode the file path in case it was URL encoded
-      const decodedFilePath = decodeURIComponent(filePath);
-
-      // Post approval comment to the file in the PR
       const response = await octokit.request(
-        "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+        "GET /repos/{owner}/{repo}/contents/{path}",
         {
           owner,
           repo,
-          pull_number: prNumber,
-          body: "approved",
-          commit_id: sha,
           path: decodedFilePath,
-          headers: {
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
         }
       );
 
-      res.json({
-        success: true,
-        comment_id: response.data.id,
-        comment_url: response.data.html_url,
-        timestamp: response.data.created_at,
-        file_path: decodedFilePath,
-        commenter: response.data.user.login,
-      });
-    } catch (error) {
-      console.error("Error adding approval comment:", error);
+      // If the file is found, we can proceed to approve it
+      if (response.status === 200) {
+        const fileContent = Buffer.from(
+          response.data.content,
+          "base64"
+        ).toString("utf-8");
+        // Do something with the file content
 
-      if (error.response) {
-        return res.status(error.response.status).json({
-          error: "GitHub API Error",
-          message:
-            error.response.data.message ||
-            "An error occurred while communicating with the GitHub API.",
-        });
+        console.log("File content retrieved successfully.");
+        //find the line number to approve by matching the label_name value
+        const lines = fileContent.split("\n");
+        const lineNumber = lines.findIndex((line) => line.includes(label_name));
+
+        if (lineNumber === -1) {
+          console.error("Label name not found in file content.");
+          return res.status(404).json({
+            error: "Not Found",
+            message: "Label name not found in file content.",
+          });
+        }
+
+        try {
+          // Decode the file path in case it was URL encoded
+          const decodedFilePath = decodeURIComponent(filePath);
+
+          // Post approval comment to the file in the PR
+          const response = await octokit.request(
+            "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+            {
+              owner,
+              repo,
+              pull_number: prNumber,
+              body: "approved",
+              commit_id: sha,
+              line: lineNumber,
+              side: "RIGHT",
+              path: decodedFilePath,
+              headers: {
+                "X-GitHub-Api-Version": "2022-11-28",
+              },
+            }
+          );
+
+          res.json({
+            success: true,
+            comment_id: response.data.id,
+            comment_url: response.data.html_url,
+            timestamp: response.data.created_at,
+            file_path: decodedFilePath,
+            commenter: response.data.user.login,
+          });
+        } catch (error) {
+          console.error("Error adding approval comment:", error);
+
+          if (error.response) {
+            return res.status(error.response.status).json({
+              error: "GitHub API Error",
+              message:
+                error.response.data.message ||
+                "An error occurred while communicating with the GitHub API.",
+            });
+          }
+
+          res.status(500).json({
+            error: "Internal Server Error",
+            message:
+              "An unexpected error occurred while adding approval comment.",
+          });
+        }
       }
-
-      res.status(500).json({
+    } catch (error) {
+      console.error("Error retrieving file content:", error);
+      return res.status(500).json({
         error: "Internal Server Error",
-        message: "An unexpected error occurred while adding approval comment.",
+        message: "An unexpected error occurred while retrieving file content.",
       });
     }
   }
