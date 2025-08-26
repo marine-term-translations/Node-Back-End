@@ -1321,8 +1321,8 @@ app.get("/api/github/user", async (req, res) => {
 
 // call to get eligable reviewers for repo
 app.get("/api/github/reviewers", async (req, res) => {
-  const { token, repo } = req.query;
-
+  const { repo } = req.query;
+  const token = req.headers.authorization;
   // Validate token
   if (!token) {
     return res.status(401).json({
@@ -1394,6 +1394,8 @@ app.get("/api/github/reviewers", async (req, res) => {
       message: "No valid reviewers found in reviewers.json.",
     });
   }
+
+  console.log(reviewerUsernames);
 
   // return the array of reviewers
   res.json(reviewerUsernames);
@@ -1509,9 +1511,19 @@ app.get(
         );
 
         if (hasApproval) {
-          approvedLabels.push(label.replace(/- name\s*"?([^"]*)"?/, "$1"));
+          approvedLabels.push(
+            label
+              .replace(/- name\s*"?([^"]*)"?/, "$1")
+              .replace(": ", "")
+              .replace('"', "")
+          );
         } else {
-          unapprovedLabels.push(label.replace(/- name\s*"?([^"]*)"?/, "$1"));
+          unapprovedLabels.push(
+            label
+              .replace(/- name\s*"?([^"]*)"?/, "$1")
+              .replace(": ", "")
+              .replace('"', "")
+          );
         }
       });
 
