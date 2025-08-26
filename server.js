@@ -1373,104 +1373,67 @@ app.get(
       // Decode the file path in case it was URL encoded
       const decodedFilePath = decodeURIComponent(filePath);
 
-      // Read reviewers.json from main branch
-      let reviewers = [];
-      try {
-        const reviewersResponse = await octokit.request(
-          "GET /repos/{owner}/{repo}/contents/{path}",
-          {
-            owner,
-            repo,
-            path: "reviewers.json",
-            ref: "main",
-          }
-        );
-
-        const reviewersContent = Buffer.from(
-          reviewersResponse.data.content,
-          "base64"
-        ).toString("utf-8");
-
-        reviewers = JSON.parse(reviewersContent);
-
-        if (!Array.isArray(reviewers)) {
-          throw new Error("Reviewers file must contain an array of objects");
+      // Fetch the file content
+      const fileContentResponse = await octokit.request(
+        "GET /repos/{owner}/{repo}/contents/{path}",
+        {
+          owner,
+          repo,
+          path: decodedFilePath,
+          ref: "main",
         }
-      } catch (reviewersError) {
-        // Handle missing or invalid reviewers.json
-        if (reviewersError.status === 404) {
-          return res.status(404).json({
-            error: "Reviewers Not Found",
-            message: "reviewers.json file not found in the main branch.",
-          });
-        }
+      );
 
-        console.error("Error reading reviewers.json:", reviewersError);
-        return res.status(500).json({
-          error: "Internal Server Error",
-          message: "Error reading or parsing reviewers.json file.",
-        });
-      }
+      const fileContent = Buffer.from(
+        fileContentResponse.data.content,
+        "base64"
+      ).toString("utf-8");
 
-      // Extract reviewer usernames (first key in each dict object)
-      const reviewerUsernames = reviewers
-        .map((reviewerObj) => {
-          const keys = Object.keys(reviewerObj);
-          return keys.length > 0 ? keys[0] : null;
-        })
-        .filter((username) => username !== null);
+      // Extract lines containing "-name"
+      const linesWithName = fileContent
+        .split("\n")
+        .map((line, index) => ({ line, index: index + 1 }))
+        .filter(({ line }) => line.includes("-name"));
 
-      if (reviewerUsernames.length === 0) {
-        return res.status(400).json({
-          error: "Bad Request",
-          message: "No valid reviewers found in reviewers.json.",
-        });
-      }
-
-      // Get PR comments for the specific file
+      // Fetch PR comments
       const commentsResponse = await octokit.request(
         "GET /repos/{owner}/{repo}/pulls/{pull_number}/comments",
         {
           owner,
           repo,
           pull_number: prNumber,
-          headers: {
-            "X-GitHub-Api-Version": "2022-11-28",
-          },
         }
       );
 
-      // Filter comments for the specific file and look for "approved" comments from reviewers
-      const fileComments = commentsResponse.data.filter(
-        (comment) => comment.path === decodedFilePath
-      );
+      const comments = commentsResponse.data;
 
-      const approvalComments = fileComments.filter((comment) => {
-        const isApprovalComment =
-          comment.body.toLowerCase().trim() === "approved";
-        const isFromReviewer = reviewerUsernames.includes(comment.user.login);
-        return isApprovalComment && isFromReviewer;
+      // Check approvals
+      const unapprovedLabels = [];
+      const approvedLabels = [];
+
+      linesWithName.forEach(({ line, index }) => {
+        const label = line.trim();
+        const hasApproval = comments.some(
+          (comment) =>
+            comment.path === decodedFilePath &&
+            comment.position === index &&
+            comment.body.trim().toLowerCase() === "approved"
+        );
+
+        if (hasApproval) {
+          approvedLabels.push(label);
+        } else {
+          unapprovedLabels.push(label);
+        }
       });
 
-      if (approvalComments.length > 0) {
-        // File has been approved - return the first approval found
-        const approval = approvalComments[0];
-        return res.json({
-          approved: true,
-          reviewer: approval.user.login,
-          timestamp: approval.created_at,
-          comment_id: approval.id,
-          comment_url: approval.html_url,
-        });
-      } else {
-        return res.json({
-          approved: false,
-          eligible_reviewers: reviewerUsernames,
-          checked_file: decodedFilePath,
-        });
-      }
+      res.json({
+        approved: unapprovedLabels.length === 0,
+        unapprovedLabels,
+        approvedLabels,
+      });
     } catch (error) {
-      console.error("Error checking reviewer approval:", error);
+      console.error("Error processing approval check:", error);
 
       if (error.response) {
         return res.status(error.response.status).json({
@@ -1483,7 +1446,7 @@ app.get(
 
       res.status(500).json({
         error: "Internal Server Error",
-        message: "An unexpected error occurred while checking approval status.",
+        message: "An unexpected error occurred while processing the request.",
       });
     }
   }
