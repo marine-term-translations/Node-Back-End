@@ -1245,10 +1245,8 @@ app.post("/api/github/comment", async (req, res) => {
   }
 });
 
-// Section start for PR reviewer approval routes
-app.get("/api/github/pr/:prNumber/file/:filePath/approved", async (req, res) => {
-  const { prNumber, filePath } = req.params;
-  const { repo } = req.query;
+// call to get current github user signed in
+app.get("/api/github/user", async (req, res) => {
   const token = req.headers.authorization;
 
   // Validate token
@@ -1259,258 +1257,302 @@ app.get("/api/github/pr/:prNumber/file/:filePath/approved", async (req, res) => 
     });
   }
 
-  // Validate parameters
-  if (!repo) {
-    return res.status(400).json({
-      error: "Bad Request",
-      message: 'The "repo" query parameter is required.',
-    });
-  }
-
-  if (!prNumber || isNaN(prNumber)) {
-    return res.status(400).json({
-      error: "Bad Request",
-      message: "Valid PR number is required.",
-    });
-  }
-
-  if (!filePath) {
-    return res.status(400).json({
-      error: "Bad Request",
-      message: "File path is required.",
-    });
-  }
-
-  // Validate environment variables
-  const owner = process.env.GITHUB_OWNER;
-  if (!owner) {
-    console.error("GitHub owner is missing in environment variables.");
-    return res.status(500).json({
-      error: "Internal Server Error",
-      message: "GitHub owner is not set in environment variables.",
-    });
-  }
-
   try {
     const octokit = new Octokit({ auth: token });
+    const response = await octokit.request("GET /user");
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error while retrieving the user:", error);
 
-    // Decode the file path in case it was URL encoded
-    const decodedFilePath = decodeURIComponent(filePath);
+    if (error.response) {
+      return res.status(error.response.status).json({
+        error: "GitHub API Error",
+        message:
+          error.response.data.message ||
+          "An error occurred while communicating with the GitHub API.",
+      });
+    }
 
-    // Read reviewers.json from main branch
-    let reviewers = [];
+    res.status(500).json({
+      error: "Internal Server Error",
+      message: "An unexpected error occurred while retrieving the user.",
+    });
+  }
+});
+
+// Section start for PR reviewer approval routes
+app.get(
+  "/api/github/pr/:prNumber/file/:filePath/approved",
+  async (req, res) => {
+    const { prNumber, filePath } = req.params;
+    const { repo } = req.query;
+    const token = req.headers.authorization;
+
+    // Validate token
+    if (!token) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message: "Authorization token is required in the headers.",
+      });
+    }
+
+    // Validate parameters
+    if (!repo) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: 'The "repo" query parameter is required.',
+      });
+    }
+
+    if (!prNumber || isNaN(prNumber)) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Valid PR number is required.",
+      });
+    }
+
+    if (!filePath) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "File path is required.",
+      });
+    }
+
+    // Validate environment variables
+    const owner = process.env.GITHUB_OWNER;
+    if (!owner) {
+      console.error("GitHub owner is missing in environment variables.");
+      return res.status(500).json({
+        error: "Internal Server Error",
+        message: "GitHub owner is not set in environment variables.",
+      });
+    }
+
     try {
-      const reviewersResponse = await octokit.request(
-        "GET /repos/{owner}/{repo}/contents/{path}",
+      const octokit = new Octokit({ auth: token });
+
+      // Decode the file path in case it was URL encoded
+      const decodedFilePath = decodeURIComponent(filePath);
+
+      // Read reviewers.json from main branch
+      let reviewers = [];
+      try {
+        const reviewersResponse = await octokit.request(
+          "GET /repos/{owner}/{repo}/contents/{path}",
+          {
+            owner,
+            repo,
+            path: "reviewers.json",
+            ref: "main",
+          }
+        );
+
+        const reviewersContent = Buffer.from(
+          reviewersResponse.data.content,
+          "base64"
+        ).toString("utf-8");
+
+        reviewers = JSON.parse(reviewersContent);
+
+        if (!Array.isArray(reviewers)) {
+          throw new Error("Reviewers file must contain an array of objects");
+        }
+      } catch (reviewersError) {
+        // Handle missing or invalid reviewers.json
+        if (reviewersError.status === 404) {
+          return res.status(404).json({
+            error: "Reviewers Not Found",
+            message: "reviewers.json file not found in the main branch.",
+          });
+        }
+
+        console.error("Error reading reviewers.json:", reviewersError);
+        return res.status(500).json({
+          error: "Internal Server Error",
+          message: "Error reading or parsing reviewers.json file.",
+        });
+      }
+
+      // Extract reviewer usernames (first key in each dict object)
+      const reviewerUsernames = reviewers
+        .map((reviewerObj) => {
+          const keys = Object.keys(reviewerObj);
+          return keys.length > 0 ? keys[0] : null;
+        })
+        .filter((username) => username !== null);
+
+      if (reviewerUsernames.length === 0) {
+        return res.status(400).json({
+          error: "Bad Request",
+          message: "No valid reviewers found in reviewers.json.",
+        });
+      }
+
+      // Get PR comments for the specific file
+      const commentsResponse = await octokit.request(
+        "GET /repos/{owner}/{repo}/pulls/{pull_number}/comments",
         {
           owner,
           repo,
-          path: "reviewers.json",
-          ref: "main",
+          pull_number: prNumber,
+          headers: {
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
         }
       );
 
-      const reviewersContent = Buffer.from(
-        reviewersResponse.data.content,
-        "base64"
-      ).toString("utf-8");
+      // Filter comments for the specific file and look for "approved" comments from reviewers
+      const fileComments = commentsResponse.data.filter(
+        (comment) => comment.path === decodedFilePath
+      );
 
-      reviewers = JSON.parse(reviewersContent);
+      const approvalComments = fileComments.filter((comment) => {
+        const isApprovalComment =
+          comment.body.toLowerCase().trim() === "approved";
+        const isFromReviewer = reviewerUsernames.includes(comment.user.login);
+        return isApprovalComment && isFromReviewer;
+      });
 
-      if (!Array.isArray(reviewers)) {
-        throw new Error("Reviewers file must contain an array of objects");
-      }
-    } catch (reviewersError) {
-      // Handle missing or invalid reviewers.json
-      if (reviewersError.status === 404) {
-        return res.status(404).json({
-          error: "Reviewers Not Found",
-          message: "reviewers.json file not found in the main branch.",
+      if (approvalComments.length > 0) {
+        // File has been approved - return the first approval found
+        const approval = approvalComments[0];
+        return res.json({
+          approved: true,
+          reviewer: approval.user.login,
+          timestamp: approval.created_at,
+          comment_id: approval.id,
+          comment_url: approval.html_url,
+        });
+      } else {
+        return res.json({
+          approved: false,
+          eligible_reviewers: reviewerUsernames,
+          checked_file: decodedFilePath,
         });
       }
-      
-      console.error("Error reading reviewers.json:", reviewersError);
-      return res.status(500).json({
+    } catch (error) {
+      console.error("Error checking reviewer approval:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message ||
+            "An error occurred while communicating with the GitHub API.",
+        });
+      }
+
+      res.status(500).json({
         error: "Internal Server Error",
-        message: "Error reading or parsing reviewers.json file.",
+        message: "An unexpected error occurred while checking approval status.",
+      });
+    }
+  }
+);
+
+app.post(
+  "/api/github/pr/:prNumber/file/:filePath/approve",
+  async (req, res) => {
+    const { prNumber, filePath } = req.params;
+    const { repo, sha } = req.body;
+    const token = req.headers.authorization;
+
+    // Validate token
+    if (!token) {
+      return res.status(401).json({
+        error: "Unauthorized",
+        message: "Authorization token is required in the headers.",
       });
     }
 
-    // Extract reviewer usernames (first key in each dict object)
-    const reviewerUsernames = reviewers.map(reviewerObj => {
-      const keys = Object.keys(reviewerObj);
-      return keys.length > 0 ? keys[0] : null;
-    }).filter(username => username !== null);
-
-    if (reviewerUsernames.length === 0) {
+    // Validate parameters
+    if (!repo) {
       return res.status(400).json({
         error: "Bad Request",
-        message: "No valid reviewers found in reviewers.json.",
+        message: 'The "repo" field is required in the request body.',
       });
     }
 
-    // Get PR comments for the specific file
-    const commentsResponse = await octokit.request(
-      "GET /repos/{owner}/{repo}/pulls/{pull_number}/comments",
-      {
-        owner,
-        repo,
-        pull_number: prNumber,
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
+    if (!sha) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: 'The "sha" field is required in the request body.',
+      });
+    }
+
+    if (!prNumber || isNaN(prNumber)) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "Valid PR number is required.",
+      });
+    }
+
+    if (!filePath) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: "File path is required.",
+      });
+    }
+
+    // Validate environment variables
+    const owner = process.env.GITHUB_OWNER;
+    if (!owner) {
+      console.error("GitHub owner is missing in environment variables.");
+      return res.status(500).json({
+        error: "Internal Server Error",
+        message: "GitHub owner is not set in environment variables.",
+      });
+    }
+
+    try {
+      const octokit = new Octokit({ auth: token });
+
+      // Decode the file path in case it was URL encoded
+      const decodedFilePath = decodeURIComponent(filePath);
+
+      // Post approval comment to the file in the PR
+      const response = await octokit.request(
+        "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+        {
+          owner,
+          repo,
+          pull_number: prNumber,
+          body: "approved",
+          commit_id: sha,
+          path: decodedFilePath,
+          headers: {
+            "X-GitHub-Api-Version": "2022-11-28",
+          },
+        }
+      );
+
+      res.json({
+        success: true,
+        comment_id: response.data.id,
+        comment_url: response.data.html_url,
+        timestamp: response.data.created_at,
+        file_path: decodedFilePath,
+        commenter: response.data.user.login,
+      });
+    } catch (error) {
+      console.error("Error adding approval comment:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message ||
+            "An error occurred while communicating with the GitHub API.",
+        });
       }
-    );
 
-    // Filter comments for the specific file and look for "approved" comments from reviewers
-    const fileComments = commentsResponse.data.filter(
-      comment => comment.path === decodedFilePath
-    );
-
-    const approvalComments = fileComments.filter(comment => {
-      const isApprovalComment = comment.body.toLowerCase().trim() === "approved";
-      const isFromReviewer = reviewerUsernames.includes(comment.user.login);
-      return isApprovalComment && isFromReviewer;
-    });
-
-    if (approvalComments.length > 0) {
-      // File has been approved - return the first approval found
-      const approval = approvalComments[0];
-      return res.json({
-        approved: true,
-        reviewer: approval.user.login,
-        timestamp: approval.created_at,
-        comment_id: approval.id,
-        comment_url: approval.html_url,
-      });
-    } else {
-      return res.json({
-        approved: false,
-        eligible_reviewers: reviewerUsernames,
-        checked_file: decodedFilePath,
+      res.status(500).json({
+        error: "Internal Server Error",
+        message: "An unexpected error occurred while adding approval comment.",
       });
     }
-
-  } catch (error) {
-    console.error("Error checking reviewer approval:", error);
-
-    if (error.response) {
-      return res.status(error.response.status).json({
-        error: "GitHub API Error",
-        message:
-          error.response.data.message ||
-          "An error occurred while communicating with the GitHub API.",
-      });
-    }
-
-    res.status(500).json({
-      error: "Internal Server Error",
-      message: "An unexpected error occurred while checking approval status.",
-    });
   }
-});
-
-app.post("/api/github/pr/:prNumber/file/:filePath/approve", async (req, res) => {
-  const { prNumber, filePath } = req.params;
-  const { repo, sha } = req.body;
-  const token = req.headers.authorization;
-
-  // Validate token
-  if (!token) {
-    return res.status(401).json({
-      error: "Unauthorized",
-      message: "Authorization token is required in the headers.",
-    });
-  }
-
-  // Validate parameters
-  if (!repo) {
-    return res.status(400).json({
-      error: "Bad Request",
-      message: 'The "repo" field is required in the request body.',
-    });
-  }
-
-  if (!sha) {
-    return res.status(400).json({
-      error: "Bad Request",
-      message: 'The "sha" field is required in the request body.',
-    });
-  }
-
-  if (!prNumber || isNaN(prNumber)) {
-    return res.status(400).json({
-      error: "Bad Request",
-      message: "Valid PR number is required.",
-    });
-  }
-
-  if (!filePath) {
-    return res.status(400).json({
-      error: "Bad Request",
-      message: "File path is required.",
-    });
-  }
-
-  // Validate environment variables
-  const owner = process.env.GITHUB_OWNER;
-  if (!owner) {
-    console.error("GitHub owner is missing in environment variables.");
-    return res.status(500).json({
-      error: "Internal Server Error",
-      message: "GitHub owner is not set in environment variables.",
-    });
-  }
-
-  try {
-    const octokit = new Octokit({ auth: token });
-
-    // Decode the file path in case it was URL encoded
-    const decodedFilePath = decodeURIComponent(filePath);
-
-    // Post approval comment to the file in the PR
-    const response = await octokit.request(
-      "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
-      {
-        owner,
-        repo,
-        pull_number: prNumber,
-        body: "approved",
-        commit_id: sha,
-        path: decodedFilePath,
-        headers: {
-          "X-GitHub-Api-Version": "2022-11-28",
-        },
-      }
-    );
-
-    res.json({
-      success: true,
-      comment_id: response.data.id,
-      comment_url: response.data.html_url,
-      timestamp: response.data.created_at,
-      file_path: decodedFilePath,
-      commenter: response.data.user.login,
-    });
-
-  } catch (error) {
-    console.error("Error adding approval comment:", error);
-
-    if (error.response) {
-      return res.status(error.response.status).json({
-        error: "GitHub API Error",
-        message:
-          error.response.data.message ||
-          "An error occurred while communicating with the GitHub API.",
-      });
-    }
-
-    res.status(500).json({
-      error: "Internal Server Error",
-      message: "An unexpected error occurred while adding approval comment.",
-    });
-  }
-});
+);
 
 // Section start for google translations
 app.post("/api/translation/suggestions", async (req, res) => {
