@@ -1319,6 +1319,86 @@ app.get("/api/github/user", async (req, res) => {
   }
 });
 
+// call to get eligable reviewers for repo
+app.get("/api/github/reviewers", async (req, res) => {
+  const { token, repo } = req.query;
+
+  // Validate token
+  if (!token) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "Authorization token is required.",
+    });
+  }
+
+  // Validate repo
+  if (!repo) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: 'The "repo" query parameter is required.',
+    });
+  }
+
+  // Read reviewers.json from main branch
+  let reviewers = [];
+  try {
+    const reviewersResponse = await octokit.request(
+      "GET /repos/{owner}/{repo}/contents/{path}",
+      {
+        owner,
+        repo,
+        path: "reviewers.json",
+        ref: "main",
+      }
+    );
+
+    const reviewersContent = Buffer.from(
+      reviewersResponse.data.content,
+      "base64"
+    ).toString("utf-8");
+
+    reviewers = JSON.parse(reviewersContent);
+
+    if (!Array.isArray(reviewers)) {
+      throw new Error("Reviewers file must contain an array of objects");
+    }
+  } catch (reviewersError) {
+    // Handle missing or invalid reviewers.json
+
+    if (reviewersError.status === 404) {
+      return res.status(404).json({
+        error: "Reviewers Not Found",
+        message: "reviewers.json file not found in the main branch.",
+      });
+    }
+
+    console.error("Error reading reviewers.json:", reviewersError);
+
+    return res.status(500).json({
+      error: "Internal Server Error",
+      message: "Error reading or parsing reviewers.json file.",
+    });
+  }
+
+  // Extract reviewer usernames (first key in each dict object)
+  const reviewerUsernames = reviewers
+    .map((reviewerObj) => {
+      const keys = Object.keys(reviewerObj);
+      return keys.length > 0 ? keys[0] : null;
+    })
+    .filter((username) => username !== null);
+
+  if (reviewerUsernames.length === 0) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message: "No valid reviewers found in reviewers.json.",
+    });
+  }
+
+  // return the array of reviewers
+  res.json(reviewerUsernames);
+});
+
 // Section start for PR reviewer approval routes
 app.get(
   "/api/github/pr/:prNumber/file/:filePath/approved",
@@ -1387,7 +1467,7 @@ app.get(
           owner,
           repo,
           path: decodedFilePath,
-          ref: branch || "main",
+          ref: branch,
         }
       );
 
@@ -1415,9 +1495,6 @@ app.get(
       );
 
       const comments = commentsResponse.data;
-
-      console.log(comments);
-
       // Check approvals
       const unapprovedLabels = [];
       const approvedLabels = [];
@@ -1432,9 +1509,9 @@ app.get(
         );
 
         if (hasApproval) {
-          approvedLabels.push(label);
+          approvedLabels.push(label.replace(/- name\s*"?([^"]*)"?/, "$1"));
         } else {
-          unapprovedLabels.push(label);
+          unapprovedLabels.push(label.replace(/- name\s*"?([^"]*)"?/, "$1"));
         }
       });
 
