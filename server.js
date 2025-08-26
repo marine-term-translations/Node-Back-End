@@ -708,6 +708,45 @@ app.get("/api/github/conflicts", async (req, res) => {
   }
 });
 
+//get latest commit sha from a branch
+app.get("/api/github/commits", async (req, res) => {
+  const { repo, branch } = req.query;
+  const token = req.headers.authorization;
+
+  if (!repo || !branch) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message:
+        'The "repo" and "branch" fields are required in the query parameters.',
+    });
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "Authorization token is required in the headers.",
+    });
+  }
+
+  try {
+    const octokit = new Octokit({
+      auth: token,
+    });
+    const response = await octokit.request(
+      "GET /repos/{owner}/{repo}/commits",
+      {
+        owner: process.env.GITHUB_OWNER,
+        repo,
+        sha: branch,
+      }
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error while retrieving commits:", error);
+    res.status(500).send("Server internal error");
+  }
+});
+
 app.get("/api/github/content", async (req, res) => {
   const { repo, path, branch } = req.query;
   const token = req.headers.authorization;
@@ -1545,6 +1584,7 @@ app.post(
         //find the line number to approve by matching the label_name value
         const lines = fileContent.split("\n");
         const lineNumber = lines.findIndex((line) => line.includes(label_name));
+        console.log("Line number found:", lineNumber);
 
         if (lineNumber === -1) {
           console.error("Label name not found in file content.");
@@ -1567,7 +1607,7 @@ app.post(
               pull_number: prNumber,
               body: "approved",
               commit_id: sha,
-              line: lineNumber,
+              line: lineNumber + 1,
               side: "RIGHT",
               path: decodedFilePath,
               headers: {
