@@ -1341,6 +1341,7 @@ app.get("/api/github/reviewers", async (req, res) => {
 
   // Read reviewers.json from main branch
   let reviewers = [];
+  const octokit = new Octokit({ auth: token });
   try {
     const reviewersResponse = await octokit.request(
       "GET /repos/{owner}/{repo}/contents/{path}",
