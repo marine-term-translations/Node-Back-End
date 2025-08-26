@@ -1343,6 +1343,13 @@ app.get(
       });
     }
 
+    if (!branch) {
+      return res.status(400).json({
+        error: "Bad Request",
+        message: 'The "branch" query parameter is required.',
+      });
+    }
+
     if (!prNumber || isNaN(prNumber)) {
       return res.status(400).json({
         error: "Bad Request",
@@ -1389,11 +1396,15 @@ app.get(
         "base64"
       ).toString("utf-8");
 
+      console.log(fileContent);
+
       // Extract lines containing "-name"
       const linesWithName = fileContent
         .split("\n")
         .map((line, index) => ({ line, index: index + 1 }))
         .filter(({ line }) => line.includes("-name"));
+
+      console.log(linesWithName);
 
       // Fetch PR comments
       const commentsResponse = await octokit.request(
@@ -1406,6 +1417,8 @@ app.get(
       );
 
       const comments = commentsResponse.data;
+
+      console.log(comments);
 
       // Check approvals
       const unapprovedLabels = [];
