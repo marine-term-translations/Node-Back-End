@@ -1508,7 +1508,7 @@ app.get(
           (comment) =>
             comment.path === decodedFilePath &&
             comment.body.trim().toLowerCase() ===
-              `approved-${label}`.toLowerCase()
+              `approved-${label}`.trim().toLowerCase()
         );
 
         if (hasApproval) {
