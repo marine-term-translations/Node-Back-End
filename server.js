@@ -1485,8 +1485,6 @@ app.get(
         .map((line, index) => ({ line, index: index + 1 }))
         .filter(({ line }) => line.includes("- name"));
 
-      console.log(linesWithName);
-
       // Fetch PR comments
       const commentsResponse = await octokit.request(
         "GET /repos/{owner}/{repo}/pulls/{pull_number}/comments",
@@ -1502,12 +1500,24 @@ app.get(
       const unapprovedLabels = [];
       const approvedLabels = [];
 
+      comments.forEach((comment) => {
+        console.log(
+          `Comment path: ${comment.path}, body: ${comment.body
+            .trim()
+            .toLowerCase()}`
+        );
+        console.log(`Decoded file path: ${decodedFilePath}`);
+        console.log(
+          `Label to compare to: ${("approved-" + label).trim().toLowerCase()}`
+        );
+      });
+
       linesWithName.forEach(({ line, index }) => {
         const label = line.trim();
         const hasApproval = comments.some(
           (comment) =>
             comment.path === decodedFilePath &&
-            comment.body.trim().toLowerCase() ===
+            comment.body.trim().toLowerCase() ==
               `approved-${label}`.trim().toLowerCase()
         );
 
