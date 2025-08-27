@@ -846,6 +846,7 @@ export class GitHubService {
       const label = line.trim();
       const labelToCompare = ("approved-" + label)
         .replace(/- name\s*"?([^"]*)"?/, "$1")
+        .replace(": ", "")
         .replace('"', "")
         .trim()
         .toLowerCase();
