@@ -342,7 +342,7 @@ export class GitHubService {
         },
       }
     );
-    
+
     if (!pullsResponse.data.length) {
       // Get the diff between main and the specified branch
       const response = await this.octokit.request(
@@ -489,14 +489,14 @@ export class GitHubService {
         }
       })
     );
-    
+
     var boolConflict = false;
     conflictslist.forEach((conflict) => {
       if (conflict.conflicts.length > 0) {
         boolConflict = true;
       }
     });
-    
+
     // Return the conflicts
     if (boolConflict) {
       return conflictslist;
@@ -511,7 +511,7 @@ export class GitHubService {
   async updateFileWithTranslations(repo, translations, branch, filename) {
     const value = translations;
     const path = filename;
-    
+
     // Fetch the file content from GitHub
     const response = await this.octokit.request(
       "GET /repos/{owner}/{repo}/contents/{path}",
@@ -581,7 +581,7 @@ export class GitHubService {
         },
       }
     );
-    
+
     return response2;
   }
 
@@ -876,6 +876,7 @@ export class GitHubService {
         approvedLabels.push({
           label: label
             .replace(/- name\s*"?([^"]*)"?/, "$1")
+            .replace(": ", "")
             .replace('"', "")
             .trim(),
           lineNumber: index,
@@ -889,6 +890,7 @@ export class GitHubService {
           label: label
             .replace(/- name\s*"?([^"]*)"?/, "$1")
             .replace('"', "")
+            .replace(": ", "")
             .trim(),
           lineNumber: index,
         });
@@ -1025,7 +1027,9 @@ export class GitHubService {
         throw error;
       }
     } else {
-      const error = new Error("The pull request is not mergeable. Please check for conflicts.");
+      const error = new Error(
+        "The pull request is not mergeable. Please check for conflicts."
+      );
       error.status = 400;
       error.type = "Not Mergeable";
       throw error;
