@@ -747,6 +747,45 @@ app.get("/api/github/commits", async (req, res) => {
   }
 });
 
+//get all comments for a pr
+app.get("/api/github/pr/comments", async (req, res) => {
+  const { repo, prNumber } = req.query;
+  const token = req.headers.authorization;
+
+  if (!repo || !prNumber) {
+    return res.status(400).json({
+      error: "Bad Request",
+      message:
+        'The "repo" and "prNumber" fields are required in the query parameters.',
+    });
+  }
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Unauthorized",
+      message: "Authorization token is required in the headers.",
+    });
+  }
+
+  try {
+    const octokit = new Octokit({
+      auth: token,
+    });
+    const response = await octokit.request(
+      "GET /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+      {
+        owner: process.env.GITHUB_OWNER,
+        repo,
+        pull_number: prNumber,
+      }
+    );
+    res.json(response.data);
+  } catch (error) {
+    console.error("Error while retrieving PR comments:", error);
+    res.status(500).send("Server internal error");
+  }
+});
+
 app.get("/api/github/content", async (req, res) => {
   const { repo, path, branch } = req.query;
   const token = req.headers.authorization;
