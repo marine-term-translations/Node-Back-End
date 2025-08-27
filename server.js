@@ -1507,8 +1507,7 @@ app.get(
         const hasApproval = comments.some(
           (comment) =>
             comment.path === decodedFilePath &&
-            comment.line === index &&
-            comment.body.trim().toLowerCase() === "approved"
+            comment.body.trim().toLowerCase() === `approved-${label}`
         );
 
         if (hasApproval) {
@@ -1669,7 +1668,7 @@ app.post(
               owner,
               repo,
               pull_number: prNumber,
-              body: "approved",
+              body: `approved-${label_name}`,
               commit_id: sha,
               line: lineNumber + 1,
               side: "RIGHT",
