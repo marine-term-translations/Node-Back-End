@@ -846,7 +846,6 @@ export class GitHubService {
       const label = line.trim();
       const labelToCompare = ("approved-" + label)
         .replace(/- name\s*"?([^"]*)"?/, "$1")
-        .replace(": ", "")
         .replace('"', "")
         .trim()
         .toLowerCase();
@@ -885,7 +884,6 @@ export class GitHubService {
           comment_id: approvalComment.id,
           comment_url: approvalComment.html_url,
         });
-      } else {
         unapprovedLabels.push({
           label: label
             .replace(/- name\s*"?([^"]*)"?/, "$1")
@@ -894,7 +892,7 @@ export class GitHubService {
             .trim(),
           lineNumber: index,
         });
-      }
+      
     });
 
     return {
