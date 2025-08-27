@@ -1,15 +1,15 @@
-import express from 'express';
-import { diffLines } from 'diff';
-import { parse, stringify } from 'yaml';
-import { GitHubService } from '../services/githubService.js';
-import { ERROR_MESSAGES, STATUS_CODES } from '../utils/constants.js';
+import express from "express";
+import { diffLines } from "diff";
+import { parse, stringify } from "yaml";
+import { GitHubService } from "../services/githubService.js";
+import { ERROR_MESSAGES, STATUS_CODES } from "../utils/constants.js";
 import {
   validateGitHubToken,
   validateQueryParams,
   validateBodyFields,
   validateBranchPrefix,
-  validateGitHubOwner
-} from '../middleware/validation.js';
+  validateGitHubOwner,
+} from "../middleware/validation.js";
 
 const router = express.Router();
 
@@ -17,9 +17,10 @@ const router = express.Router();
  * GET /api/github/branches
  * Get branches for a repository filtered by key prefix
  */
-router.get("/branches", 
+router.get(
+  "/branches",
   validateGitHubToken,
-  validateQueryParams(['repo']),
+  validateQueryParams(["repo"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo } = req.query;
@@ -27,10 +28,13 @@ router.get("/branches",
 
     const keyBranchPrefix = process.env.GITHUB_KEY_BRANCH;
     if (!keyBranchPrefix) {
-      console.error("GitHub key branch prefix is missing in environment variables.");
+      console.error(
+        "GitHub key branch prefix is missing in environment variables."
+      );
       return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
         error: "Internal Server Error",
-        message: "GitHub key branch prefix is not set in environment variables.",
+        message:
+          "GitHub key branch prefix is not set in environment variables.",
       });
     }
 
@@ -52,9 +56,10 @@ router.get("/branches",
  * GET /api/github/tree
  * Get YAML files from repository tree
  */
-router.get("/tree",
+router.get(
+  "/tree",
   validateGitHubToken,
-  validateQueryParams(['repo', 'branch']),
+  validateQueryParams(["repo", "branch"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo, branch } = req.query;
@@ -78,9 +83,10 @@ router.get("/tree",
  * GET /api/github/content
  * Get content of a specific file
  */
-router.get("/content",
+router.get(
+  "/content",
   validateGitHubToken,
-  validateQueryParams(['repo', 'path', 'branch']),
+  validateQueryParams(["repo", "path", "branch"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo, path, branch } = req.query;
@@ -124,9 +130,10 @@ router.get("/user", validateGitHubToken, async (req, res) => {
  * GET /api/github/reviewers
  * Get list of reviewers from reviewers.json
  */
-router.get("/reviewers",
+router.get(
+  "/reviewers",
   validateGitHubToken,
-  validateQueryParams(['repo']),
+  validateQueryParams(["repo"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo } = req.query;
@@ -166,33 +173,52 @@ router.get("/reviewers",
  * POST /api/github/comment
  * Create a comment on a pull request
  */
-router.post("/comment", validateBodyFields([
-  'token', 'pull_number', 'repo', 'comment', 'path', 'sha', 'line', 'side'
-]), async (req, res) => {
-  const { token, pull_number, repo, comment, path, sha, line, side } = req.body;
+router.post(
+  "/comment",
+  validateBodyFields([
+    "token",
+    "pull_number",
+    "repo",
+    "comment",
+    "path",
+    "sha",
+    "line",
+    "side",
+  ]),
+  async (req, res) => {
+    const { token, pull_number, repo, comment, path, sha, line, side } =
+      req.body;
 
-  try {
-    const githubService = new GitHubService(token);
-    const response = await githubService.createPRComment(
-      repo, pull_number, comment, sha, path, line, side
-    );
-    res.json(response);
-  } catch (error) {
-    console.error("Error while creating comment:", error);
-    res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
-      error: "Internal Server Error",
-      message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-    });
+    try {
+      const githubService = new GitHubService(token);
+      const response = await githubService.createPRComment(
+        repo,
+        pull_number,
+        comment,
+        sha,
+        path,
+        line,
+        side
+      );
+      res.json(response);
+    } catch (error) {
+      console.error("Error while creating comment:", error);
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
   }
-});
+);
 
 /**
  * GET /api/github/diff
  * Get detailed diff with file contents between branch and main
  */
-router.get("/diff",
+router.get(
+  "/diff",
   validateGitHubToken,
-  validateQueryParams(['repo', 'branch']),
+  validateQueryParams(["repo", "branch"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo, branch } = req.query;
@@ -210,8 +236,7 @@ router.get("/diff",
         return res.status(error.response.status).json({
           error: "GitHub API Error",
           message:
-            error.response.data.message ||
-            ERROR_MESSAGES.GITHUB_API_ERROR,
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
         });
       }
 
@@ -228,9 +253,10 @@ router.get("/diff",
  * GET /api/github/conflicts
  * Check for conflicts between branch and main
  */
-router.get("/conflicts",
+router.get(
+  "/conflicts",
   validateGitHubToken,
-  validateQueryParams(['repo', 'branch']),
+  validateQueryParams(["repo", "branch"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo, branch } = req.query;
@@ -239,7 +265,7 @@ router.get("/conflicts",
     try {
       const githubService = new GitHubService(token);
       const conflicts = await githubService.getConflicts(repo, branch);
-      
+
       if (conflicts.length === 0) {
         return res.status(STATUS_CODES.NO_CONTENT).send("No conflicts found");
       }
@@ -251,7 +277,8 @@ router.get("/conflicts",
       if (error.response) {
         return res.status(error.response.status).json({
           error: "GitHub API Error",
-          message: error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
         });
       }
 
@@ -267,9 +294,10 @@ router.get("/conflicts",
  * PUT /api/github/update
  * Update file with translations
  */
-router.put("/update",
+router.put(
+  "/update",
   validateGitHubToken,
-  validateBodyFields(['repo', 'translations', 'branch', 'filename']),
+  validateBodyFields(["repo", "translations", "branch", "filename"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo, translations, branch, filename } = req.body;
@@ -278,7 +306,10 @@ router.put("/update",
     try {
       const githubService = new GitHubService(token);
       const response = await githubService.updateFileWithTranslations(
-        repo, translations, branch, filename
+        repo,
+        translations,
+        branch,
+        filename
       );
       res.json(response.data);
     } catch (error) {
@@ -287,7 +318,8 @@ router.put("/update",
       if (error.response) {
         return res.status(error.response.status).json({
           error: "GitHub API Error",
-          message: error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
         });
       }
 
@@ -303,9 +335,10 @@ router.put("/update",
  * GET /api/github/commits
  * Get commits for a repository
  */
-router.get("/commits",
+router.get(
+  "/commits",
   validateGitHubToken,
-  validateQueryParams(['repo', 'branch']),
+  validateQueryParams(["repo", "branch"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo, branch, since } = req.query;
@@ -329,9 +362,10 @@ router.get("/commits",
  * GET /api/github/pr/comments
  * Get pull request comments by PR number
  */
-router.get("/pr/comments",
+router.get(
+  "/pr/comments",
   validateGitHubToken,
-  validateQueryParams(['repo', 'prNumber']),
+  validateQueryParams(["repo", "prNumber"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo, prNumber } = req.query;
@@ -343,7 +377,9 @@ router.get("/pr/comments",
       res.json(comments);
     } catch (error) {
       console.error("Error while retrieving PR comments:", error);
-      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).send("Server internal error");
+      res
+        .status(STATUS_CODES.INTERNAL_SERVER_ERROR)
+        .send("Server internal error");
     }
   }
 );
@@ -352,9 +388,10 @@ router.get("/pr/comments",
  * GET /api/github/changed
  * Get changed files and their status
  */
-router.get("/changed",
+router.get(
+  "/changed",
   validateGitHubToken,
-  validateQueryParams(['repo', 'branch']),
+  validateQueryParams(["repo", "branch"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo, branch } = req.query;
@@ -377,7 +414,8 @@ router.get("/changed",
       if (error.response) {
         return res.status(error.response.status).json({
           error: "GitHub API Error",
-          message: error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
         });
       }
 
@@ -393,9 +431,10 @@ router.get("/changed",
  * PUT /api/github/merge
  * Merge branch to main
  */
-router.put("/merge",
+router.put(
+  "/merge",
   validateGitHubToken,
-  validateBodyFields(['repo', 'branch']),
+  validateBodyFields(["repo", "branch"]),
   validateGitHubOwner,
   async (req, res) => {
     const { repo, branch } = req.body;
@@ -425,7 +464,9 @@ router.put("/merge",
       if (error.response) {
         return res.status(error.response.status).json({
           error: "GitHub API Error",
-          message: error.response.data.message || "Error occurred while communicating with the GitHub API.",
+          message:
+            error.response.data.message ||
+            "Error occurred while communicating with the GitHub API.",
         });
       }
 
@@ -441,9 +482,10 @@ router.put("/merge",
  * GET /api/github/pr/:prNumber/file/:filePath/approved
  * Check if a specific file in a pull request has been approved
  */
-router.get("/pr/:prNumber/file/:filePath/approved",
+router.get(
+  "/pr/:prNumber/file/:filePath/approved",
   validateGitHubToken,
-  validateQueryParams(['repo', 'branch']),
+  validateQueryParams(["repo", "branch"]),
   validateGitHubOwner,
   async (req, res) => {
     const { prNumber, filePath } = req.params;
@@ -468,18 +510,24 @@ router.get("/pr/:prNumber/file/:filePath/approved",
     try {
       const githubService = new GitHubService(token);
       const approvalStatus = await githubService.checkFileApproval(
-        repo, parseInt(prNumber), filePath, branch
+        repo,
+        parseInt(prNumber),
+        filePath,
+        branch
       );
-      
+
       if (approvalStatus.approved) {
         res.json({
           approved: true,
           approvedLabels: approvalStatus.approvedLabels,
+          unapprovedLabels: approvalStatus.unapprovedLabels,
+          eligible_reviewers: approvalStatus.eligible_reviewers,
           checked_file: approvalStatus.checked_file,
         });
       } else {
         res.json({
           approved: false,
+          approvedLabels: approvalStatus.approvedLabels,
           unapprovedLabels: approvalStatus.unapprovedLabels,
           eligible_reviewers: approvalStatus.eligible_reviewers,
           checked_file: approvalStatus.checked_file,
@@ -507,9 +555,10 @@ router.get("/pr/:prNumber/file/:filePath/approved",
  * POST /api/github/pr/:prNumber/file/:filePath/approve
  * Approve a specific file in a pull request
  */
-router.post("/pr/:prNumber/file/:filePath/approve",
+router.post(
+  "/pr/:prNumber/file/:filePath/approve",
   validateGitHubToken,
-  validateBodyFields(['repo', 'sha', 'lang', 'label_name']),
+  validateBodyFields(["repo", "sha", "lang", "label_name"]),
   validateGitHubOwner,
   async (req, res) => {
     const { prNumber, filePath } = req.params;
@@ -534,13 +583,20 @@ router.post("/pr/:prNumber/file/:filePath/approve",
     try {
       const githubService = new GitHubService(token);
       const response = await githubService.approveFile(
-        repo, parseInt(prNumber), filePath, sha, lang, label_name
+        repo,
+        parseInt(prNumber),
+        filePath,
+        sha,
+        lang,
+        label_name
       );
-      
+
       res.json({
         success: true,
         comment: response,
-        message: `File ${decodeURIComponent(filePath)} has been approved for label "${label_name}" in language "${lang}".`,
+        message: `File ${decodeURIComponent(
+          filePath
+        )} has been approved for label "${label_name}" in language "${lang}".`,
       });
     } catch (error) {
       console.error("Error approving file:", error);
