@@ -1507,7 +1507,8 @@ app.get(
         const hasApproval = comments.some(
           (comment) =>
             comment.path === decodedFilePath &&
-            comment.body.trim().toLowerCase() === `approved-${label}`
+            comment.body.trim().toLowerCase() ===
+              `approved-${label}`.toLowerCase()
         );
 
         if (hasApproval) {
