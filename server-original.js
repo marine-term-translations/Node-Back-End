@@ -1,4 +1,3 @@
-// make by Maxime ALBERT for VLIZ
 import express, { json, response } from "express";
 import axios from "axios";
 import cors from "cors";
