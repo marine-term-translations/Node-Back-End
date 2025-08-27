@@ -1,5 +1,4 @@
 import { Octokit } from "octokit";
-import { parse } from "yaml";
 import { diffLines } from "diff";
 import { parse, stringify } from "yaml";
 import {
