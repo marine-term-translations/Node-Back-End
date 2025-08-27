@@ -1507,13 +1507,13 @@ app.get(
             .toLowerCase()}`
         );
         console.log(`Decoded file path: ${decodedFilePath}`);
-        console.log(
-          `Label to compare to: ${("approved-" + label).trim().toLowerCase()}`
-        );
       });
 
       linesWithName.forEach(({ line, index }) => {
         const label = line.trim();
+        console.log(
+          `Label to compare to: ${("approved-" + label).trim().toLowerCase()}`
+        );
         const hasApproval = comments.some(
           (comment) =>
             comment.path === decodedFilePath &&
