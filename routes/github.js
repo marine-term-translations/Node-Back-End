@@ -193,7 +193,6 @@ router.post("/comment", validateBodyFields([
 router.get("/diff",
   validateGitHubToken,
   validateQueryParams(['repo', 'branch']),
-  validateBranchPrefix,
   validateGitHubOwner,
   async (req, res) => {
     const { repo, branch } = req.query;
@@ -232,7 +231,6 @@ router.get("/diff",
 router.get("/conflicts",
   validateGitHubToken,
   validateQueryParams(['repo', 'branch']),
-  validateBranchPrefix,
   validateGitHubOwner,
   async (req, res) => {
     const { repo, branch } = req.query;
@@ -329,26 +327,23 @@ router.get("/commits",
 
 /**
  * GET /api/github/pr/comments
- * Get pull request comments
+ * Get pull request comments by PR number
  */
 router.get("/pr/comments",
   validateGitHubToken,
-  validateQueryParams(['repo', 'branch']),
+  validateQueryParams(['repo', 'prNumber']),
   validateGitHubOwner,
   async (req, res) => {
-    const { repo, branch } = req.query;
+    const { repo, prNumber } = req.query;
     const token = req.headers.authorization;
 
     try {
       const githubService = new GitHubService(token);
-      const comments = await githubService.getPullRequestComments(repo, branch);
+      const comments = await githubService.getPRComments(repo, prNumber);
       res.json(comments);
     } catch (error) {
       console.error("Error while retrieving PR comments:", error);
-      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
-        error: "Internal Server Error",
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      });
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).send("Server internal error");
     }
   }
 );
@@ -400,29 +395,43 @@ router.get("/changed",
  */
 router.put("/merge",
   validateGitHubToken,
-  validateBodyFields(['repo', 'branch', 'title', 'body']),
+  validateBodyFields(['repo', 'branch']),
   validateGitHubOwner,
   async (req, res) => {
-    const { repo, branch, title, body } = req.body;
+    const { repo, branch } = req.body;
     const token = req.headers.authorization;
 
     try {
       const githubService = new GitHubService(token);
-      const result = await githubService.mergeBranch(repo, branch, title, body);
+      const result = await githubService.mergeBranch(repo, branch);
       res.json(result);
     } catch (error) {
-      console.error("Error while merging:", error);
+      console.error("Error during merge:", error);
+
+      if (error.status === 404) {
+        return res.status(STATUS_CODES.NOT_FOUND).json({
+          error: "Not Found",
+          message: error.message,
+        });
+      }
+
+      if (error.status === 400) {
+        return res.status(STATUS_CODES.BAD_REQUEST).json({
+          error: error.type || "Merge Failed",
+          message: error.message,
+        });
+      }
 
       if (error.response) {
         return res.status(error.response.status).json({
           error: "GitHub API Error",
-          message: error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+          message: error.response.data.message || "Error occurred while communicating with the GitHub API.",
         });
       }
 
       res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
         error: "Internal Server Error",
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+        message: "An unexpected error occurred during the merge process.",
       });
     }
   }

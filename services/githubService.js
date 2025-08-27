@@ -241,7 +241,7 @@ export class GitHubService {
   }
 
   /**
-   * Get detailed diff with file contents
+   * Get detailed diff with file contents - matching server-original.js structure
    */
   async getDetailedDiff(repo, branch) {
     // Check if there are existing pull requests for this branch
@@ -290,27 +290,11 @@ export class GitHubService {
       files = response.data;
     }
 
-    // Retrieve diffs and file contents for each file
-    const diffsData = await Promise.all(
+    // Retrieve the content of each changed file
+    const filesContent = await Promise.all(
       files.map(async (file) => {
         try {
-          // Get the content of the file before the changes (from main)
-          const beforeResponse = await this.octokit.request(
-            "GET /repos/{owner}/{repo}/contents/{path}",
-            {
-              owner: this.owner,
-              repo,
-              path: file.filename,
-              ref: "main",
-            }
-          );
-          const beforeContent = Buffer.from(
-            beforeResponse.data.content,
-            "base64"
-          ).toString("utf-8");
-
-          // Get the content of the file after the changes (from the branch)
-          const afterResponse = await this.octokit.request(
+          const contentResponse = await this.octokit.request(
             "GET /repos/{owner}/{repo}/contents/{path}",
             {
               owner: this.owner,
@@ -319,46 +303,75 @@ export class GitHubService {
               ref: branch,
             }
           );
-          const afterContent = Buffer.from(
-            afterResponse.data.content,
-            "base64"
-          ).toString("utf-8");
-
-          // Parse YAML content
-          const beforeData = parse(beforeContent);
-          const afterData = parse(afterContent);
-
-          // Generate line-by-line diff
-          const diff = diffLines(beforeContent, afterContent);
-
-          return {
-            filename: file.filename,
-            status: file.status,
-            changes: file.changes,
-            beforeContent: beforeData,
-            afterContent: afterData,
-            diff: diff,
-          };
+          const content = parse(
+            Buffer.from(contentResponse.data.content, "base64").toString(
+              "utf-8"
+            )
+          );
+          return { filename: file.filename, content: content };
         } catch (error) {
-          console.error(`Error processing file ${file.filename}:`, error);
-          return {
-            filename: file.filename,
-            status: file.status,
-            error: "Unable to retrieve file content or parse YAML",
-          };
+          console.error(
+            `Error retrieving content for file ${file.filename}:`,
+            error
+          );
+          throw new Error(
+            `Failed to retrieve content for file: ${file.filename}`
+          );
         }
       })
     );
 
-    return diffsData;
+    return filesContent;
   }
 
   /**
-   * Check for conflicts between branch and main
+   * Check for conflicts between branch and main - matching server-original.js structure
    */
   async getConflicts(repo, branch) {
-    // Get files from the branch comparison
-    const files = await this.getDiff(repo, branch);
+    // Compare main with the specified branch
+    let files;
+    const pullsResponse = await this.octokit.request(
+      "GET /repos/{owner}/{repo}/pulls",
+      {
+        owner: this.owner,
+        repo,
+        head: `${this.owner}:${branch}`,
+        base: "main",
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    
+    if (!pullsResponse.data.length) {
+      // Get the diff between main and the specified branch
+      const response = await this.octokit.request(
+        "GET /repos/{owner}/{repo}/compare/{basehead}",
+        {
+          owner: this.owner,
+          repo,
+          basehead: `main...${branch}`,
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
+      files = response.data.files;
+    } else {
+      // Retrieve changed files in the pull request
+      const response = await this.octokit.request(
+        "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
+        {
+          owner: this.owner,
+          repo,
+          pull_number: pullsResponse.data[0].number,
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
+      files = response.data;
+    }
 
     // Compare the specified branch with main
     const compareResponseSync = await this.octokit.request(
@@ -429,81 +442,147 @@ export class GitHubService {
 
           // Identify conflicts
           const conflicts = [];
-          for (const [key, value] of Object.entries(parsedBranch)) {
-            if (parsedSync.hasOwnProperty(key)) {
-              for (const [langKey, langValue] of Object.entries(value)) {
-                if (
-                  parsedSync[key].hasOwnProperty(langKey) &&
-                  parsedSync[key][langKey] !== langValue
-                ) {
-                  conflicts.push({
-                    key,
-                    language: langKey,
-                    branchValue: langValue,
-                    mainValue: parsedSync[key][langKey],
-                  });
+          const labelsSync = parsedSync.labels;
+          const labelsBranch = parsedBranch.labels;
+          labelsSync.forEach((syncLabel) => {
+            const branchLabel = labelsBranch.find(
+              (label) => label.name === syncLabel.name
+            );
+            if (branchLabel) {
+              syncLabel.translations.forEach((syncTranslation) => {
+                const branchTranslation = branchLabel.translations.find((t) =>
+                  Object.keys(t).some(
+                    (lang) =>
+                      syncTranslation[lang] !== undefined &&
+                      t[lang] !== undefined
+                  )
+                );
+                if (branchTranslation) {
+                  Object.entries(syncTranslation).forEach(
+                    ([lang, syncValue]) => {
+                      if (
+                        syncValue !== branchTranslation[lang] &&
+                        syncValue !== ""
+                      ) {
+                        conflicts.push({
+                          label: syncLabel.name,
+                          language: lang,
+                          syncValue,
+                          branchValue: branchTranslation[lang],
+                        });
+                      }
+                    }
+                  );
                 }
-              }
+              });
             }
-          }
-
-          return conflicts.length > 0 ? { filename, conflicts } : null;
-        } catch (error) {
-          console.error(`Error checking conflicts for ${filename}:`, error);
-          return null;
+          });
+          return { filename, conflicts };
+        } catch (err) {
+          console.error(`Error retrieving content for file ${filename}:`, err);
+          return {
+            filename,
+            conflicts: [
+              { error: `Failed to retrieve content for file: ${filename}` },
+            ],
+          };
         }
       })
     );
-
-    return conflictslist.filter((item) => item !== null);
+    
+    var boolConflict = false;
+    conflictslist.forEach((conflict) => {
+      if (conflict.conflicts.length > 0) {
+        boolConflict = true;
+      }
+    });
+    
+    // Return the conflicts
+    if (boolConflict) {
+      return conflictslist;
+    } else {
+      return [];
+    }
   }
 
   /**
-   * Update file with translations
+   * Update file with translations - matching server-original.js structure
    */
   async updateFileWithTranslations(repo, translations, branch, filename) {
-    // Get current file content and SHA
-    const currentFileResponse = await this.octokit.request(
+    const value = translations;
+    const path = filename;
+    
+    // Fetch the file content from GitHub
+    const response = await this.octokit.request(
       "GET /repos/{owner}/{repo}/contents/{path}",
       {
         owner: this.owner,
         repo,
-        path: filename,
+        path,
         ref: branch,
       }
     );
 
-    const currentContent = Buffer.from(
-      currentFileResponse.data.content,
-      "base64"
-    ).toString("utf-8");
-
-    // Parse current content
-    const parsedContent = parse(currentContent);
-
-    // Update with new translations
-    for (const [key, value] of Object.entries(translations)) {
-      if (parsedContent.hasOwnProperty(key)) {
-        for (const [lang, translation] of Object.entries(value)) {
-          parsedContent[key][lang] = translation;
-        }
-      } else {
-        parsedContent[key] = value;
-      }
-    }
-
-    // Convert back to YAML
-    const updatedContent = stringify(parsedContent);
-
-    // Update the file
-    return await this.updateFile(
-      repo,
-      filename,
-      updatedContent,
-      `Update translations in ${filename}`,
-      branch,
-      currentFileResponse.data.sha
+    const content = parse(
+      Buffer.from(response.data.content, "base64").toString("utf-8")
     );
+
+    // Update the content with the provided translations
+    content.labels.forEach((label) => {
+      const translationKey = label.name;
+      if (value.hasOwnProperty(translationKey)) {
+        Object.entries(value[translationKey]).forEach(([language, term]) => {
+          const translationObj = label.translations.find((t) =>
+            t.hasOwnProperty(language)
+          );
+          if (translationObj) {
+            translationObj[language] = term;
+          } else {
+            console.warn(
+              `Language ${language} not found for label ${translationKey}`
+            );
+          }
+        });
+      }
+    });
+
+    const updatedContent = stringify(content, {
+      quotingType: '"',
+      prettyErrors: true,
+      lineWidth: 0,
+      defaultStringType: "QUOTE_DOUBLE",
+      defaultKeyType: "PLAIN",
+    });
+
+    // Fetch the sha of file content from GitHub
+    const responseSha = await this.octokit.request(
+      "GET /repos/{owner}/{repo}/contents/{path}",
+      {
+        owner: this.owner,
+        repo,
+        path,
+        ref: branch,
+      }
+    );
+
+    // Commit the updated file to the repository
+    const response2 = await this.octokit.request(
+      "PUT /repos/{owner}/{repo}/contents/{path}",
+      {
+        owner: this.owner,
+        repo,
+        path,
+        branch,
+        message: `Update translations for ${path}`,
+        content: Buffer.from(updatedContent).toString("base64"),
+        sha: responseSha.data.sha,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    
+    return response2;
   }
 
   /**
@@ -529,6 +608,22 @@ export class GitHubService {
   }
 
   /**
+   * Get pull request comments by PR number - matching server-original.js structure
+   */
+  async getPRComments(repo, pullNumber) {
+    const response = await this.octokit.request(
+      "GET /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+      {
+        owner: this.owner,
+        repo,
+        pull_number: pullNumber,
+      }
+    );
+
+    return response.data;
+  }
+
+  /**
    * Get pull request comments
    */
   async getPullRequestComments(repo, branch) {
@@ -545,10 +640,12 @@ export class GitHubService {
   }
 
   /**
-   * Get changed files and their status
+   * Get changed files and their status - matching server-original.js structure
    */
   async getChangedFiles(repo, branch) {
-    // Check if there are existing pull requests for this branch
+    let pullNumber;
+
+    // Retrieve pull requests related to the branch
     const pullsResponse = await this.octokit.request(
       "GET /repos/{owner}/{repo}/pulls",
       {
@@ -562,28 +659,139 @@ export class GitHubService {
       }
     );
 
+    // If there's no existing PR, compare the branch with main
     if (!pullsResponse.data.length) {
-      throw new Error("No pull request found for this branch");
+      const compareResponse = await this.octokit.request(
+        "GET /repos/{owner}/{repo}/compare/{base}...{head}",
+        {
+          owner: this.owner,
+          repo,
+          base: "main",
+          head: branch,
+        }
+      );
+
+      // If the branch has no commits ahead of main, return success
+      if (compareResponse.data.ahead_by === 0) {
+        return {
+          compare: true,
+          message: "The branch has no changes to compare with main.",
+        };
+      }
+
+      // Create a new pull request if the branch has changes to compare
+      const createPullResponse = await this.octokit.request(
+        "POST /repos/{owner}/{repo}/pulls",
+        {
+          owner: this.owner,
+          repo,
+          title: "New changes from " + branch,
+          body: "Please review and merge these changes from " + branch,
+          head: branch,
+          base: "main",
+          draft: true,
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
+
+      pullNumber = createPullResponse.data.number;
+    } else {
+      // Use the existing pull request
+      pullNumber = pullsResponse.data[0].number;
     }
 
-    // Get the diff from the existing pull request
-    const prNumber = pullsResponse.data[0].number;
-    const response = await this.octokit.request(
+    // Retrieve changed files in the pull request
+    const { data: files } = await this.octokit.request(
       "GET /repos/{owner}/{repo}/pulls/{pull_number}/files",
       {
         owner: this.owner,
         repo,
-        pull_number: prNumber,
+        pull_number: pullNumber,
         headers: {
           "X-GitHub-Api-Version": GITHUB_API_VERSION,
         },
       }
     );
 
-    return {
-      pullRequestNumber: prNumber,
-      files: response.data,
-    };
+    // Retrieve diffs and file contents for each file
+    const diffsData = await Promise.all(
+      files.map(async (file) => {
+        try {
+          // Get the content of the file before the changes (from main)
+          const beforeResponse = await this.octokit.request(
+            "GET /repos/{owner}/{repo}/contents/{path}",
+            {
+              owner: this.owner,
+              repo,
+              path: file.filename,
+              ref: "main", // Refers to the main branch
+            }
+          );
+          const beforeContent = Buffer.from(
+            beforeResponse.data.content,
+            "base64"
+          ).toString("utf-8");
+
+          // Get the content of the file after the changes (from the branch)
+          const afterResponse = await this.octokit.request(
+            "GET /repos/{owner}/{repo}/contents/{path}",
+            {
+              owner: this.owner,
+              repo,
+              path: file.filename,
+              ref: branch, // Refers to the branch being compared
+            }
+          );
+          const afterContent = Buffer.from(
+            afterResponse.data.content,
+            "base64"
+          ).toString("utf-8");
+
+          // Calculate the diff between the two versions of the file
+          const diff = diffLines(beforeContent, afterContent);
+
+          return {
+            filename: file.filename,
+            before: beforeContent,
+            after: afterContent,
+            filesha: file.sha,
+            diff,
+          };
+        } catch (fileError) {
+          console.error(
+            `Error retrieving content for file ${file.filename}:`,
+            fileError
+          );
+          throw new Error(
+            `Failed to retrieve content for file: ${file.filename}`
+          );
+        }
+      })
+    );
+
+    // Retrieve comments on the pull request
+    const commentsResponse = await this.octokit.request(
+      "GET /repos/{owner}/{repo}/pulls/{pull_number}/comments",
+      {
+        owner: this.owner,
+        repo,
+        pull_number: pullNumber,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+
+    const commentsData = commentsResponse.data.map((comment) => ({
+      path: comment.path,
+      line: comment.position,
+      body: comment.body,
+      created_at: comment.created_at,
+    }));
+
+    return { diffsData, commentsData, pullNumber };
   }
 
   /**
@@ -721,38 +929,106 @@ export class GitHubService {
   }
 
   /**
-   * Merge branch to main
+   * Merge branch to main - matching server-original.js structure
    */
-  async mergeBranch(repo, branch, title, body) {
-    // First create a pull request
-    const pullResponse = await this.octokit.request(
-      "POST /repos/{owner}/{repo}/pulls",
+  async mergeBranch(repo, branch) {
+    console.log("merge");
+
+    // Fetch all pull requests for the given repo and branch
+    const pullsResponse = await this.octokit.request(
+      "GET /repos/{owner}/{repo}/pulls",
       {
         owner: this.owner,
         repo,
-        title,
-        body,
-        head: branch,
+        head: `${this.owner}:${branch}`,
         base: "main",
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
       }
     );
 
-    // Then merge it
-    const mergeResponse = await this.octokit.request(
-      "PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge",
+    // Check if there are no pull requests for this branch
+    if (pullsResponse.data.length === 0) {
+      const error = new Error(`No pull requests found for branch: ${branch}`);
+      error.status = 404;
+      throw error;
+    }
+
+    // Get details of the first pull request for the branch
+    const pullRequest = pullsResponse.data[0];
+    const pullDetailsResponse = await this.octokit.request(
+      "GET /repos/{owner}/{repo}/pulls/{pull_number}",
       {
         owner: this.owner,
         repo,
-        pull_number: pullResponse.data.number,
-        commit_title: title,
-        commit_message: body,
-        merge_method: "squash",
+        pull_number: pullRequest.number,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
       }
     );
 
-    return {
-      pullRequest: pullResponse.data,
-      merge: mergeResponse.data,
-    };
+    // Check if the pull request is mergeable
+    if (pullDetailsResponse.data.mergeable) {
+      // If the pull request is in draft, mark it ready for review
+      if (pullDetailsResponse.data.draft) {
+        const markReadyQuery = `
+          mutation($pullRequestId: ID!) {
+            markPullRequestReadyForReview(input: { pullRequestId: $pullRequestId }) {
+              pullRequest {
+                id
+                number
+                state
+              }
+            }
+          }
+        `;
+        const pullRequestId = pullDetailsResponse.data.node_id;
+        await this.octokit.graphql(markReadyQuery, { pullRequestId });
+      }
+
+      // Merge the pull request
+      const mergeResponse = await this.octokit.request(
+        "PUT /repos/{owner}/{repo}/pulls/{pull_number}/merge",
+        {
+          owner: this.owner,
+          repo,
+          pull_number: pullDetailsResponse.data.number,
+          commit_title: `Merge pull request #${pullDetailsResponse.data.number}`,
+          commit_message: "Merging pull request",
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
+
+      // If the merge is successful, delete the branch
+      if (mergeResponse.data.merged) {
+        await this.octokit.request(
+          "DELETE /repos/{owner}/{repo}/git/refs/heads/{branch}",
+          {
+            owner: this.owner,
+            repo,
+            branch,
+            headers: {
+              "X-GitHub-Api-Version": GITHUB_API_VERSION,
+            },
+          }
+        );
+
+        return { message: "Merge successful and branch deleted" };
+      } else {
+        const error = new Error("The merge operation could not be completed.");
+        error.status = 400;
+        error.type = "Merge Failed";
+        throw error;
+      }
+    } else {
+      const error = new Error("The pull request is not mergeable. Please check for conflicts.");
+      error.status = 400;
+      error.type = "Not Mergeable";
+      throw error;
+    }
   }
 }
