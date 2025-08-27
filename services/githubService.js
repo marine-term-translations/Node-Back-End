@@ -1,6 +1,11 @@
-import { Octokit } from 'octokit';
-import { parse } from 'yaml';
-import { ERROR_MESSAGES, STATUS_CODES, GITHUB_API_VERSION } from '../utils/constants.js';
+import { Octokit } from "octokit";
+import { parse } from "yaml";
+import { diffLines } from "diff";
+import {
+  ERROR_MESSAGES,
+  STATUS_CODES,
+  GITHUB_API_VERSION,
+} from "../utils/constants.js";
 
 /**
  * GitHub API service for handling all GitHub-related operations
@@ -17,7 +22,9 @@ export class GitHubService {
   async getBranches(repo) {
     const keyBranchPrefix = process.env.GITHUB_KEY_BRANCH;
     if (!keyBranchPrefix) {
-      throw new Error("GitHub key branch prefix is not set in environment variables.");
+      throw new Error(
+        "GitHub key branch prefix is not set in environment variables."
+      );
     }
 
     const response = await this.octokit.request(
@@ -100,7 +107,9 @@ export class GitHubService {
       }
     );
 
-    const content = Buffer.from(response.data.content, "base64").toString("utf-8");
+    const content = Buffer.from(response.data.content, "base64").toString(
+      "utf-8"
+    );
     return parse(content);
   }
 
@@ -601,7 +610,7 @@ export class GitHubService {
     ).toString("utf-8");
 
     // Parse lines with "- name" to find labels
-    const lines = fileContent.split('\n');
+    const lines = fileContent.split("\n");
     const linesWithName = lines
       .map((line, index) => ({ line, index: index + 1 }))
       .filter(({ line }) => line.includes("- name"));
@@ -657,7 +666,10 @@ export class GitHubService {
         });
 
         approvedLabels.push({
-          label: label.replace(/- name\s*"?([^"]*)"?/, "$1").replace('"', "").trim(),
+          label: label
+            .replace(/- name\s*"?([^"]*)"?/, "$1")
+            .replace('"', "")
+            .trim(),
           lineNumber: index,
           reviewer: approvalComment.user.login,
           timestamp: approvalComment.created_at,
@@ -666,7 +678,10 @@ export class GitHubService {
         });
       } else {
         unapprovedLabels.push({
-          label: label.replace(/- name\s*"?([^"]*)"?/, "$1").replace('"', "").trim(),
+          label: label
+            .replace(/- name\s*"?([^"]*)"?/, "$1")
+            .replace('"', "")
+            .trim(),
           lineNumber: index,
         });
       }
@@ -687,7 +702,7 @@ export class GitHubService {
   async approveFile(repo, prNumber, filePath, sha, lang, labelName) {
     // Create approval comment
     const commentBody = `approved-${labelName}: ${lang}`;
-    
+
     const response = await this.octokit.request(
       "POST /repos/{owner}/{repo}/pulls/{pull_number}/comments",
       {
