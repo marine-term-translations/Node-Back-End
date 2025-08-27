@@ -1512,13 +1512,23 @@ app.get(
       linesWithName.forEach(({ line, index }) => {
         const label = line.trim();
         console.log(
-          `Label to compare to: ${("approved-" + label).trim().toLowerCase()}`
+          `Label to compare to: ${("approved-" + label)
+            .replace(/- name\s*"?([^"]*)"?/, "$1")
+            .replace(": ", "")
+            .replace('"', "")
+            .trim()
+            .toLowerCase()}`
         );
         const hasApproval = comments.some(
           (comment) =>
             comment.path === decodedFilePath &&
             comment.body.trim().toLowerCase() ==
-              `approved-${label}`.trim().toLowerCase()
+              `approved-${label}`
+                .replace(/- name\s*"?([^"]*)"?/, "$1")
+                .replace(": ", "")
+                .replace('"', "")
+                .trim()
+                .toLowerCase()
         );
 
         if (hasApproval) {
