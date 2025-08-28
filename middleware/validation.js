@@ -63,6 +63,37 @@ export const validateBranchPrefix = (req, res, next) => {
 };
 
 /**
+ * Validates required route parameters
+ */
+export const validateRouteParams = (requiredParams) => {
+  return (req, res, next) => {
+    for (const param of requiredParams) {
+      if (!req.params[param]) {
+        return res.status(STATUS_CODES.BAD_REQUEST).json({
+          error: "Bad Request",
+          message: `The "${param}" parameter is required.`,
+        });
+      }
+    }
+    next();
+  };
+};
+
+/**
+ * Validates GitHub organization token in request headers
+ */
+export const validateGitHubOrgToken = (req, res, next) => {
+  const token = req.headers.authorization;
+  if (!token) {
+    return res.status(STATUS_CODES.UNAUTHORIZED).json({
+      error: "Unauthorized",
+      message: ERROR_MESSAGES.ORG_TOKEN_UNAUTHORIZED,
+    });
+  }
+  next();
+};
+
+/**
  * Validates environment variables
  */
 export const validateGitHubOwner = (req, res, next) => {
@@ -75,5 +106,21 @@ export const validateGitHubOwner = (req, res, next) => {
     });
   }
   req.githubOwner = owner;
+  next();
+};
+
+/**
+ * Validates GitHub organization environment variables
+ */
+export const validateGitHubOrg = (req, res, next) => {
+  const org = process.env.GITHUB_ORG;
+  if (!org) {
+    console.error("GitHub organization is missing in environment variables.");
+    return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+      error: "Internal Server Error",
+      message: ERROR_MESSAGES.GITHUB_ORG_MISSING,
+    });
+  }
+  req.githubOrg = org;
   next();
 };

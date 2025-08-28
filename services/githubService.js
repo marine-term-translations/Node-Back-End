@@ -1035,4 +1035,283 @@ export class GitHubService {
       throw error;
     }
   }
+
+  // Organization Management Methods
+
+  /**
+   * Get all members of the organization
+   */
+  async getOrganizationMembers(org) {
+    const response = await this.octokit.request(
+      "GET /orgs/{org}/members",
+      {
+        org,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Invite a user to the organization
+   */
+  async inviteUserToOrganization(org, username) {
+    const response = await this.octokit.request(
+      "PUT /orgs/{org}/memberships/{username}",
+      {
+        org,
+        username,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Remove a user from the organization
+   */
+  async removeUserFromOrganization(org, username) {
+    const response = await this.octokit.request(
+      "DELETE /orgs/{org}/memberships/{username}",
+      {
+        org,
+        username,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.status === 204;
+  }
+
+  // Team Management Methods
+
+  /**
+   * Get all teams in the organization
+   */
+  async getOrganizationTeams(org) {
+    const response = await this.octokit.request(
+      "GET /orgs/{org}/teams",
+      {
+        org,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all members of a specific team
+   */
+  async getTeamMembers(org, teamSlug) {
+    const response = await this.octokit.request(
+      "GET /orgs/{org}/teams/{team_slug}/members",
+      {
+        org,
+        team_slug: teamSlug,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Add a user to a team
+   */
+  async addUserToTeam(org, teamSlug, username) {
+    const response = await this.octokit.request(
+      "PUT /orgs/{org}/teams/{team_slug}/memberships/{username}",
+      {
+        org,
+        team_slug: teamSlug,
+        username,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Remove a user from a team
+   */
+  async removeUserFromTeam(org, teamSlug, username) {
+    const response = await this.octokit.request(
+      "DELETE /orgs/{org}/teams/{team_slug}/memberships/{username}",
+      {
+        org,
+        team_slug: teamSlug,
+        username,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.status === 204;
+  }
+
+  /**
+   * Move a user from one team to another
+   */
+  async moveUserBetweenTeams(org, fromTeamSlug, toTeamSlug, username) {
+    // First, add user to the destination team
+    await this.addUserToTeam(org, toTeamSlug, username);
+    
+    // Then, remove user from the source team
+    await this.removeUserFromTeam(org, fromTeamSlug, username);
+    
+    return { message: `User ${username} moved from ${fromTeamSlug} to ${toTeamSlug}` };
+  }
+}
+
+/**
+ * GitHub Organization API service for handling organization and team operations
+ * Uses organization admin token for privileged operations
+ */
+export class GitHubOrgService {
+  constructor(orgToken) {
+    this.octokit = new Octokit({ auth: orgToken });
+    this.org = process.env.GITHUB_ORG;
+  }
+
+  /**
+   * Get all members of the organization
+   */
+  async getOrganizationMembers() {
+    const response = await this.octokit.request(
+      "GET /orgs/{org}/members",
+      {
+        org: this.org,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Invite a user to the organization
+   */
+  async inviteUserToOrganization(username) {
+    const response = await this.octokit.request(
+      "PUT /orgs/{org}/memberships/{username}",
+      {
+        org: this.org,
+        username,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Remove a user from the organization
+   */
+  async removeUserFromOrganization(username) {
+    const response = await this.octokit.request(
+      "DELETE /orgs/{org}/memberships/{username}",
+      {
+        org: this.org,
+        username,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.status === 204;
+  }
+
+  /**
+   * Get all teams in the organization
+   */
+  async getOrganizationTeams() {
+    const response = await this.octokit.request(
+      "GET /orgs/{org}/teams",
+      {
+        org: this.org,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get all members of a specific team
+   */
+  async getTeamMembers(teamSlug) {
+    const response = await this.octokit.request(
+      "GET /orgs/{org}/teams/{team_slug}/members",
+      {
+        org: this.org,
+        team_slug: teamSlug,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Add a user to a team
+   */
+  async addUserToTeam(teamSlug, username) {
+    const response = await this.octokit.request(
+      "PUT /orgs/{org}/teams/{team_slug}/memberships/{username}",
+      {
+        org: this.org,
+        team_slug: teamSlug,
+        username,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Remove a user from a team
+   */
+  async removeUserFromTeam(teamSlug, username) {
+    const response = await this.octokit.request(
+      "DELETE /orgs/{org}/teams/{team_slug}/memberships/{username}",
+      {
+        org: this.org,
+        team_slug: teamSlug,
+        username,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.status === 204;
+  }
+
+  /**
+   * Move a user from one team to another
+   */
+  async moveUserBetweenTeams(fromTeamSlug, toTeamSlug, username) {
+    // First, add user to the destination team
+    await this.addUserToTeam(toTeamSlug, username);
+    
+    // Then, remove user from the source team
+    await this.removeUserFromTeam(fromTeamSlug, username);
+    
+    return { message: `User ${username} moved from ${fromTeamSlug} to ${toTeamSlug}` };
+  }
 }
