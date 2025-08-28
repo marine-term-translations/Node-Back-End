@@ -1,5 +1,3 @@
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/marine-term-translations/Node-Back-End?utm_source=oss&utm_medium=github&utm_campaign=marine-term-translations%2FNode-Back-End&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
-
 # Marine Term Translations - Backend Server
 
 A modern Node.js backend server that connects a term translation website with GitHub repositories for collaborative translation management. This server provides RESTful APIs for GitHub integration, file management, translation services, and collaborative review workflows.
@@ -65,23 +63,23 @@ Node-Back-End/
 ├── 📁 middleware/
 │   └── validation.js          # Request validation middleware
 ├── 📁 routes/
-│   ├── auth.js               # GitHub OAuth authentication routes
-│   ├── github.js             # GitHub API integration routes
-│   └── translation.js        # Translation service routes
+│   ├── auth.js                # GitHub OAuth authentication routes
+│   ├── github.js              # GitHub API integration routes
+│   └── translation.js         # Translation service routes
 ├── 📁 services/
-│   ├── githubService.js      # GitHub API business logic
-│   └── translationService.js # Translation business logic
+│   ├── githubService.js       # GitHub API business logic
+│   └── translationService.js  # Translation business logic
 ├── 📁 utils/
-│   └── constants.js          # Application constants and configurations
-├── 📁 proxy/                 # Nginx proxy configuration
-├── server.js                 # Main application entry point
-├── server-original.js        # Legacy server implementation
-├── swagger.js                # Swagger documentation generator
-├── swagger_output.json       # Generated API documentation
-├── reviewers.json           # Authorized reviewers configuration
-├── docker-compose.yml       # Docker composition
-├── Dockerfile              # Container definition
-└── package.json            # Project dependencies and scripts
+│   └── constants.js           # Application constants and configurations
+├── 📁 proxy/                  # Nginx proxy configuration
+├── server.js                  # Main application entry point
+├── server-original.js         # Legacy server implementation
+├── swagger.js                 # Swagger documentation generator
+├── swagger_output.json        # Generated API documentation
+├── reviewers.json             # Authorized reviewers configuration
+├── docker-compose.yml         # Docker composition
+├── Dockerfile                 # Container definition
+└── package.json               # Project dependencies and scripts
 ```
 
 ### Directory Responsibilities
