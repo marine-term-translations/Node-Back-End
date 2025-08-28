@@ -1,4 +1,4 @@
-import { ERROR_MESSAGES, STATUS_CODES } from '../utils/constants.js';
+import { ERROR_MESSAGES, STATUS_CODES } from "../utils/constants.js";
 
 /**
  * Validates GitHub token in request headers
@@ -39,7 +39,7 @@ export const validateBodyFields = (requiredFields) => {
     for (const field of requiredFields) {
       if (!req.body[field]) {
         return res.status(STATUS_CODES.BAD_REQUEST).json({
-          error: "Bad Request", 
+          error: "Bad Request",
           message: `The "${field}" field is required in the request body.`,
         });
       }
@@ -113,12 +113,12 @@ export const validateGitHubOwner = (req, res, next) => {
  * Validates GitHub organization environment variables
  */
 export const validateGitHubOrg = (req, res, next) => {
-  const org = process.env.GITHUB_ORG;
+  const org = process.env.GITHUB_OWNER;
   if (!org) {
     console.error("GitHub organization is missing in environment variables.");
     return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
       error: "Internal Server Error",
-      message: ERROR_MESSAGES.GITHUB_ORG_MISSING,
+      message: ERROR_MESSAGES.GITHUB_OWNER_MISSING,
     });
   }
   req.githubOrg = org;

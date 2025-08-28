@@ -1042,15 +1042,12 @@ export class GitHubService {
    * Get all members of the organization
    */
   async getOrganizationMembers(org) {
-    const response = await this.octokit.request(
-      "GET /orgs/{org}/members",
-      {
-        org,
-        headers: {
-          "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        },
-      }
-    );
+    const response = await this.octokit.request("GET /orgs/{org}/members", {
+      org,
+      headers: {
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+      },
+    });
     return response.data;
   }
 
@@ -1094,15 +1091,12 @@ export class GitHubService {
    * Get all teams in the organization
    */
   async getOrganizationTeams(org) {
-    const response = await this.octokit.request(
-      "GET /orgs/{org}/teams",
-      {
-        org,
-        headers: {
-          "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        },
-      }
-    );
+    const response = await this.octokit.request("GET /orgs/{org}/teams", {
+      org,
+      headers: {
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+      },
+    });
     return response.data;
   }
 
@@ -1165,11 +1159,13 @@ export class GitHubService {
   async moveUserBetweenTeams(org, fromTeamSlug, toTeamSlug, username) {
     // First, add user to the destination team
     await this.addUserToTeam(org, toTeamSlug, username);
-    
+
     // Then, remove user from the source team
     await this.removeUserFromTeam(org, fromTeamSlug, username);
-    
-    return { message: `User ${username} moved from ${fromTeamSlug} to ${toTeamSlug}` };
+
+    return {
+      message: `User ${username} moved from ${fromTeamSlug} to ${toTeamSlug}`,
+    };
   }
 }
 
@@ -1180,22 +1176,19 @@ export class GitHubService {
 export class GitHubOrgService {
   constructor(orgToken) {
     this.octokit = new Octokit({ auth: orgToken });
-    this.org = process.env.GITHUB_ORG;
+    this.org = process.env.GITHUB_OWNER;
   }
 
   /**
    * Get all members of the organization
    */
   async getOrganizationMembers() {
-    const response = await this.octokit.request(
-      "GET /orgs/{org}/members",
-      {
-        org: this.org,
-        headers: {
-          "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        },
-      }
-    );
+    const response = await this.octokit.request("GET /orgs/{org}/members", {
+      org: this.org,
+      headers: {
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+      },
+    });
     return response.data;
   }
 
@@ -1237,15 +1230,12 @@ export class GitHubOrgService {
    * Get all teams in the organization
    */
   async getOrganizationTeams() {
-    const response = await this.octokit.request(
-      "GET /orgs/{org}/teams",
-      {
-        org: this.org,
-        headers: {
-          "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        },
-      }
-    );
+    const response = await this.octokit.request("GET /orgs/{org}/teams", {
+      org: this.org,
+      headers: {
+        "X-GitHub-Api-Version": GITHUB_API_VERSION,
+      },
+    });
     return response.data;
   }
 
@@ -1308,10 +1298,12 @@ export class GitHubOrgService {
   async moveUserBetweenTeams(fromTeamSlug, toTeamSlug, username) {
     // First, add user to the destination team
     await this.addUserToTeam(toTeamSlug, username);
-    
+
     // Then, remove user from the source team
     await this.removeUserFromTeam(fromTeamSlug, username);
-    
-    return { message: `User ${username} moved from ${fromTeamSlug} to ${toTeamSlug}` };
+
+    return {
+      message: `User ${username} moved from ${fromTeamSlug} to ${toTeamSlug}`,
+    };
   }
 }

@@ -8,9 +8,9 @@ To enable organization and team management features, you need to set the followi
 
 ### Required Environment Variables
 
-1. **GITHUB_ORG**: The name of your GitHub organization
+1. **GITHUB_OWNER**: The name of your GitHub organization
    ```bash
-   GITHUB_ORG=your-organization-name
+   GITHUB_OWNER=your-organization-name
    ```
 
 2. **GITHUB_TOKEN**: A GitHub personal access token or GitHub App installation token with `admin:org` scope
@@ -36,7 +36,7 @@ The organization admin should provide a GitHub personal access token with the fo
 
 All organization management endpoints require:
 - `Authorization` header with the organization admin token
-- Proper environment variables (`GITHUB_ORG` and `GITHUB_TOKEN`)
+- Proper environment variables (`GITHUB_OWNER` and `GITHUB_TOKEN`)
 
 ### Organization Management
 
