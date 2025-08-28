@@ -18,7 +18,21 @@ const doc = {
       type: "apiKey",
       name: "authorization",
       in: "header",
-      description: "Bearer token for GitHub authentication. Format: Bearer YOUR_GITHUB_TOKEN"
+      description: `GitHub Bearer Token Authentication
+
+**How to get your GitHub token:**
+1. Go to GitHub.com → Settings → Developer settings → Personal access tokens → Tokens (classic)
+2. Generate a new token with 'repo' scope permissions
+3. Copy the generated token
+
+**How to use in Swagger UI:**
+1. Click the 'Authorize' button below
+2. Enter: Bearer YOUR_GITHUB_TOKEN (replace YOUR_GITHUB_TOKEN with your actual token)
+3. Click 'Authorize' and then 'Close'
+
+**Example format:** Bearer ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+**Required scopes:** repo (for repository access)`
     }
   },
   security: [

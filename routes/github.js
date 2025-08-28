@@ -14,6 +14,32 @@ const router = express.Router();
 /**
  * GET /api/github/branches
  * Get branches for a repository filtered by key prefix
+ * #swagger.description = 'Get repository branches filtered by key prefix from GitHub'
+ * #swagger.parameters['authorization'] = {
+ *   in: 'header',
+ *   description: 'Bearer token for GitHub authentication (format: Bearer YOUR_GITHUB_TOKEN)',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.parameters['repo'] = {
+ *   in: 'query',
+ *   description: 'Repository name',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.responses[200] = {
+ *   description: 'Branches retrieved successfully',
+ *   schema: {
+ *     type: 'array',
+ *     items: {
+ *       type: 'object',
+ *       properties: {
+ *         name: { type: 'string', description: 'Branch name' },
+ *         commit: { type: 'object', description: 'Latest commit information' }
+ *       }
+ *     }
+ *   }
+ * }
  */
 router.get(
   "/branches",
@@ -21,6 +47,8 @@ router.get(
   validateQueryParams(["repo"]),
   validateGitHubOwner,
   async (req, res) => {
+    // #swagger.tags = ['GitHub']
+    // #swagger.description = 'Get repository branches filtered by key prefix from GitHub'
     const { repo } = req.query;
     const token = req.headers.authorization;
 
@@ -53,6 +81,39 @@ router.get(
 /**
  * GET /api/github/tree
  * Get YAML files from repository tree
+ * #swagger.description = 'Get YAML files from repository tree structure'
+ * #swagger.parameters['authorization'] = {
+ *   in: 'header',
+ *   description: 'Bearer token for GitHub authentication (format: Bearer YOUR_GITHUB_TOKEN)',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.parameters['repo'] = {
+ *   in: 'query',
+ *   description: 'Repository name',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.parameters['branch'] = {
+ *   in: 'query',
+ *   description: 'Branch name to get tree from',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.responses[200] = {
+ *   description: 'Repository tree retrieved successfully',
+ *   schema: {
+ *     type: 'array',
+ *     items: {
+ *       type: 'object',
+ *       properties: {
+ *         path: { type: 'string', description: 'File path' },
+ *         type: { type: 'string', description: 'File type' },
+ *         sha: { type: 'string', description: 'Git SHA hash' }
+ *       }
+ *     }
+ *   }
+ * }
  */
 router.get(
   "/tree",
@@ -80,6 +141,42 @@ router.get(
 /**
  * GET /api/github/content
  * Get content of a specific file
+ * #swagger.description = 'Get content of a specific file from GitHub repository'
+ * #swagger.parameters['authorization'] = {
+ *   in: 'header',
+ *   description: 'Bearer token for GitHub authentication (format: Bearer YOUR_GITHUB_TOKEN)',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.parameters['repo'] = {
+ *   in: 'query',
+ *   description: 'Repository name',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.parameters['path'] = {
+ *   in: 'query',
+ *   description: 'File path in the repository',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.parameters['branch'] = {
+ *   in: 'query',
+ *   description: 'Branch name to get file from',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.responses[200] = {
+ *   description: 'File content retrieved successfully',
+ *   schema: {
+ *     type: 'object',
+ *     properties: {
+ *       content: { type: 'string', description: 'Base64 encoded file content' },
+ *       encoding: { type: 'string', description: 'Content encoding' },
+ *       size: { type: 'number', description: 'File size in bytes' }
+ *     }
+ *   }
+ * }
  */
 router.get(
   "/content",
@@ -87,6 +184,8 @@ router.get(
   validateQueryParams(["repo", "path", "branch"]),
   validateGitHubOwner,
   async (req, res) => {
+    // #swagger.tags = ['GitHub']
+    // #swagger.description = 'Get content of a specific file from GitHub repository'
     const { repo, path, branch } = req.query;
     const token = req.headers.authorization;
 
@@ -107,8 +206,28 @@ router.get(
 /**
  * GET /api/github/user
  * Get current GitHub user information
+ * #swagger.description = 'Get current authenticated GitHub user information'
+ * #swagger.parameters['authorization'] = {
+ *   in: 'header',
+ *   description: 'Bearer token for GitHub authentication (format: Bearer YOUR_GITHUB_TOKEN)',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.responses[200] = {
+ *   description: 'User information retrieved successfully',
+ *   schema: {
+ *     type: 'object',
+ *     properties: {
+ *       login: { type: 'string', description: 'GitHub username' },
+ *       name: { type: 'string', description: 'User display name' },
+ *       email: { type: 'string', description: 'User email' }
+ *     }
+ *   }
+ * }
  */
 router.get("/user", validateGitHubToken, async (req, res) => {
+  // #swagger.tags = ['GitHub']
+  // #swagger.description = 'Get current authenticated GitHub user information'
   const token = req.headers.authorization;
 
   try {
@@ -127,6 +246,32 @@ router.get("/user", validateGitHubToken, async (req, res) => {
 /**
  * GET /api/github/reviewers
  * Get list of reviewers from reviewers.json
+ * #swagger.description = 'Get list of available reviewers for repository from reviewers.json'
+ * #swagger.parameters['authorization'] = {
+ *   in: 'header',
+ *   description: 'Bearer token for GitHub authentication (format: Bearer YOUR_GITHUB_TOKEN)',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.parameters['repo'] = {
+ *   in: 'query',
+ *   description: 'Repository name',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.responses[200] = {
+ *   description: 'Reviewers list retrieved successfully',
+ *   schema: {
+ *     type: 'array',
+ *     items: {
+ *       type: 'object',
+ *       properties: {
+ *         username: { type: 'string', description: 'Reviewer GitHub username' },
+ *         name: { type: 'string', description: 'Reviewer display name' }
+ *       }
+ *     }
+ *   }
+ * }
  */
 router.get(
   "/reviewers",
@@ -134,6 +279,8 @@ router.get(
   validateQueryParams(["repo"]),
   validateGitHubOwner,
   async (req, res) => {
+    // #swagger.tags = ['GitHub']
+    // #swagger.description = 'Get list of available reviewers for repository from reviewers.json'
     const { repo } = req.query;
     const token = req.headers.authorization;
 
@@ -170,6 +317,7 @@ router.get(
 /**
  * POST /api/github/comment
  * Create a comment on a pull request
+ * #swagger.description = 'Create a comment on a pull request'
  */
 router.post(
   "/comment",
@@ -212,6 +360,7 @@ router.post(
 /**
  * GET /api/github/diff
  * Get detailed diff with file contents between branch and main
+ * #swagger.description = 'Get detailed diff with file contents between branch and main'
  */
 router.get(
   "/diff",
@@ -250,6 +399,7 @@ router.get(
 /**
  * GET /api/github/conflicts
  * Check for conflicts between branch and main
+ * #swagger.description = 'Check for conflicts between branch and main'
  */
 router.get(
   "/conflicts",

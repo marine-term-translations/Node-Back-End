@@ -29,13 +29,16 @@
       "type": "apiKey",
       "name": "authorization",
       "in": "header",
-      "description": "Bearer token for GitHub authentication. Format: Bearer YOUR_GITHUB_TOKEN"
+      "description": "GitHub Bearer Token Authentication\n\n**How to get your GitHub token:**\n1. Go to GitHub.com → Settings → Developer settings → Personal access tokens → Tokens (classic)\n2. Generate a new token with 'repo' scope permissions\n3. Copy the generated token\n\n**How to use in Swagger UI:**\n1. Click the 'Authorize' button below\n2. Enter: Bearer YOUR_GITHUB_TOKEN (replace YOUR_GITHUB_TOKEN with your actual token)\n3. Click 'Authorize' and then 'Close'\n\n**Example format:** Bearer ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n**Required scopes:** repo (for repository access)"
     }
   },
   "paths": {
     "/oauth/link": {
       "get": {
-        "description": "",
+        "tags": [
+          "Authentication"
+        ],
+        "description": "Generate GitHub OAuth authorization link for user authentication",
         "responses": {
           "200": {
             "description": "OK"
@@ -45,7 +48,10 @@
     },
     "/token": {
       "post": {
-        "description": "",
+        "tags": [
+          "Authentication"
+        ],
+        "description": "Exchange OAuth authorization code for GitHub access token",
         "parameters": [
           {
             "name": "body",
@@ -69,7 +75,10 @@
     },
     "/branches": {
       "get": {
-        "description": "",
+        "tags": [
+          "GitHub"
+        ],
+        "description": "Get repository branches filtered by key prefix from GitHub",
         "parameters": [
           {
             "name": "authorization",
@@ -118,7 +127,10 @@
     },
     "/content": {
       "get": {
-        "description": "",
+        "tags": [
+          "GitHub"
+        ],
+        "description": "Get content of a specific file from GitHub repository",
         "parameters": [
           {
             "name": "authorization",
@@ -150,7 +162,10 @@
     },
     "/user": {
       "get": {
-        "description": "",
+        "tags": [
+          "GitHub"
+        ],
+        "description": "Get current authenticated GitHub user information",
         "parameters": [
           {
             "name": "authorization",
@@ -167,7 +182,10 @@
     },
     "/reviewers": {
       "get": {
-        "description": "",
+        "tags": [
+          "GitHub"
+        ],
+        "description": "Get list of available reviewers for repository from reviewers.json",
         "parameters": [
           {
             "name": "authorization",
@@ -533,7 +551,10 @@
     },
     "/suggestions": {
       "post": {
-        "description": "",
+        "tags": [
+          "Translation"
+        ],
+        "description": "Get AI-powered translation suggestions for given text",
         "parameters": [
           {
             "name": "body",
