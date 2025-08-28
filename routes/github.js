@@ -1,5 +1,5 @@
 import express from "express";
-import { GitHubService } from "../services/githubService.js";
+import { GitHubService, GitHubOrgService } from "../services/githubService.js";
 import { ERROR_MESSAGES, STATUS_CODES } from "../utils/constants.js";
 import {
   validateGitHubToken,
@@ -7,6 +7,9 @@ import {
   validateBodyFields,
   validateBranchPrefix,
   validateGitHubOwner,
+  validateGitHubOrgToken,
+  validateGitHubOrg,
+  validateRouteParams,
 } from "../middleware/validation.js";
 
 const router = express.Router();
@@ -753,6 +756,338 @@ router.post(
         return res.status(STATUS_CODES.NOT_FOUND).json({
           error: "Not Found",
           message: "File not found or PR does not exist.",
+        });
+      }
+
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+);
+
+// Organization Management Routes
+
+/**
+ * GET /api/github/org/members
+ * Get all members of the organization
+ * #swagger.description = 'Get all members of the GitHub organization'
+ */
+router.get(
+  "/org/members",
+  validateGitHubOrgToken,
+  validateGitHubOrg,
+  async (req, res) => {
+    // #swagger.tags = ['Organization']
+    // #swagger.description = 'Get all members of the GitHub organization'
+    const token = req.headers.authorization;
+
+    try {
+      const githubOrgService = new GitHubOrgService(token);
+      const members = await githubOrgService.getOrganizationMembers();
+      res.json(members);
+    } catch (error) {
+      console.error("Error retrieving organization members:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+        });
+      }
+
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+);
+
+/**
+ * PUT /api/github/org/members/:username
+ * Invite a user to the organization
+ * #swagger.description = 'Invite a user to the GitHub organization'
+ */
+router.put(
+  "/org/members/:username",
+  validateGitHubOrgToken,
+  validateGitHubOrg,
+  validateRouteParams(["username"]),
+  async (req, res) => {
+    // #swagger.tags = ['Organization']
+    // #swagger.description = 'Invite a user to the GitHub organization'
+    const { username } = req.params;
+    const token = req.headers.authorization;
+
+    try {
+      const githubOrgService = new GitHubOrgService(token);
+      const result = await githubOrgService.inviteUserToOrganization(username);
+      res.json(result);
+    } catch (error) {
+      console.error("Error inviting user to organization:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+        });
+      }
+
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/github/org/members/:username
+ * Remove a user from the organization
+ * #swagger.description = 'Remove a user from the GitHub organization'
+ */
+router.delete(
+  "/org/members/:username",
+  validateGitHubOrgToken,
+  validateGitHubOrg,
+  validateRouteParams(["username"]),
+  async (req, res) => {
+    // #swagger.tags = ['Organization']
+    // #swagger.description = 'Remove a user from the GitHub organization'
+    const { username } = req.params;
+    const token = req.headers.authorization;
+
+    try {
+      const githubOrgService = new GitHubOrgService(token);
+      const success = await githubOrgService.removeUserFromOrganization(username);
+      
+      if (success) {
+        res.status(STATUS_CODES.NO_CONTENT).send();
+      } else {
+        res.status(STATUS_CODES.BAD_REQUEST).json({
+          error: "Bad Request",
+          message: "Failed to remove user from organization",
+        });
+      }
+    } catch (error) {
+      console.error("Error removing user from organization:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+        });
+      }
+
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+);
+
+// Team Management Routes
+
+/**
+ * GET /api/github/org/teams
+ * Get all teams in the organization
+ * #swagger.description = 'Get all teams in the GitHub organization'
+ */
+router.get(
+  "/org/teams",
+  validateGitHubOrgToken,
+  validateGitHubOrg,
+  async (req, res) => {
+    // #swagger.tags = ['Teams']
+    // #swagger.description = 'Get all teams in the GitHub organization'
+    const token = req.headers.authorization;
+
+    try {
+      const githubOrgService = new GitHubOrgService(token);
+      const teams = await githubOrgService.getOrganizationTeams();
+      res.json(teams);
+    } catch (error) {
+      console.error("Error retrieving organization teams:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+        });
+      }
+
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/github/org/teams/:team_slug/members
+ * Get all members of a specific team
+ * #swagger.description = 'Get all members of a specific team in the GitHub organization'
+ */
+router.get(
+  "/org/teams/:team_slug/members",
+  validateGitHubOrgToken,
+  validateGitHubOrg,
+  validateRouteParams(["team_slug"]),
+  async (req, res) => {
+    // #swagger.tags = ['Teams']
+    // #swagger.description = 'Get all members of a specific team in the GitHub organization'
+    const { team_slug } = req.params;
+    const token = req.headers.authorization;
+
+    try {
+      const githubOrgService = new GitHubOrgService(token);
+      const members = await githubOrgService.getTeamMembers(team_slug);
+      res.json(members);
+    } catch (error) {
+      console.error("Error retrieving team members:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+        });
+      }
+
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+);
+
+/**
+ * PUT /api/github/org/teams/:team_slug/members/:username
+ * Add a user to a team
+ * #swagger.description = 'Add a user to a specific team in the GitHub organization'
+ */
+router.put(
+  "/org/teams/:team_slug/members/:username",
+  validateGitHubOrgToken,
+  validateGitHubOrg,
+  validateRouteParams(["team_slug", "username"]),
+  async (req, res) => {
+    // #swagger.tags = ['Teams']
+    // #swagger.description = 'Add a user to a specific team in the GitHub organization'
+    const { team_slug, username } = req.params;
+    const token = req.headers.authorization;
+
+    try {
+      const githubOrgService = new GitHubOrgService(token);
+      const result = await githubOrgService.addUserToTeam(team_slug, username);
+      res.json(result);
+    } catch (error) {
+      console.error("Error adding user to team:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+        });
+      }
+
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+);
+
+/**
+ * DELETE /api/github/org/teams/:team_slug/members/:username
+ * Remove a user from a team
+ * #swagger.description = 'Remove a user from a specific team in the GitHub organization'
+ */
+router.delete(
+  "/org/teams/:team_slug/members/:username",
+  validateGitHubOrgToken,
+  validateGitHubOrg,
+  validateRouteParams(["team_slug", "username"]),
+  async (req, res) => {
+    // #swagger.tags = ['Teams']
+    // #swagger.description = 'Remove a user from a specific team in the GitHub organization'
+    const { team_slug, username } = req.params;
+    const token = req.headers.authorization;
+
+    try {
+      const githubOrgService = new GitHubOrgService(token);
+      const success = await githubOrgService.removeUserFromTeam(team_slug, username);
+      
+      if (success) {
+        res.status(STATUS_CODES.NO_CONTENT).send();
+      } else {
+        res.status(STATUS_CODES.BAD_REQUEST).json({
+          error: "Bad Request",
+          message: "Failed to remove user from team",
+        });
+      }
+    } catch (error) {
+      console.error("Error removing user from team:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+        });
+      }
+
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/github/org/teams/:from_team_slug/move/:to_team_slug/:username
+ * Move a user from one team to another
+ * #swagger.description = 'Move a user from one team to another in the GitHub organization'
+ */
+router.post(
+  "/org/teams/:from_team_slug/move/:to_team_slug/:username",
+  validateGitHubOrgToken,
+  validateGitHubOrg,
+  validateRouteParams(["from_team_slug", "to_team_slug", "username"]),
+  async (req, res) => {
+    // #swagger.tags = ['Teams']
+    // #swagger.description = 'Move a user from one team to another in the GitHub organization'
+    const { from_team_slug, to_team_slug, username } = req.params;
+    const token = req.headers.authorization;
+
+    try {
+      const githubOrgService = new GitHubOrgService(token);
+      const result = await githubOrgService.moveUserBetweenTeams(
+        from_team_slug,
+        to_team_slug,
+        username
+      );
+      res.json(result);
+    } catch (error) {
+      console.error("Error moving user between teams:", error);
+
+      if (error.response) {
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message:
+            error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
         });
       }
 
