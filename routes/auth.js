@@ -8,8 +8,22 @@ const router = express.Router();
 /**
  * GET /api/github/oauth/link
  * Generate GitHub OAuth authorization link
+ * #swagger.tags = ['Authentication']
+ * #swagger.description = 'Generate GitHub OAuth authorization link for user authentication'
+ * #swagger.responses[200] = {
+ *   description: 'OAuth link generated successfully',
+ *   schema: {
+ *     type: 'object',
+ *     properties: {
+ *       client_id: { type: 'string', description: 'GitHub client ID' },
+ *       scope: { type: 'string', description: 'OAuth scope permissions' }
+ *     }
+ *   }
+ * }
  */
 router.get("/oauth/link", async (req, res) => {
+  // #swagger.tags = ['Authentication']
+  // #swagger.description = 'Generate GitHub OAuth authorization link for user authentication'
   const client_id = process.env.GITHUB_CLIENT_ID;
 
   // Validate the presence of the GitHub Client ID
@@ -28,8 +42,38 @@ router.get("/oauth/link", async (req, res) => {
 /**
  * POST /api/github/token
  * Exchange OAuth code for access token
+ * #swagger.tags = ['Authentication']
+ * #swagger.description = 'Exchange OAuth authorization code for GitHub access token'
+ * #swagger.parameters['body'] = {
+ *   in: 'body',
+ *   description: 'OAuth authorization code from GitHub',
+ *   required: true,
+ *   schema: {
+ *     type: 'object',
+ *     required: ['code'],
+ *     properties: {
+ *       code: {
+ *         type: 'string',
+ *         description: 'OAuth authorization code received from GitHub callback'
+ *       }
+ *     }
+ *   }
+ * }
+ * #swagger.responses[200] = {
+ *   description: 'Access token retrieved successfully',
+ *   schema: {
+ *     type: 'object',
+ *     properties: {
+ *       access_token: { type: 'string', description: 'GitHub access token' },
+ *       token_type: { type: 'string', description: 'Token type (bearer)' },
+ *       scope: { type: 'string', description: 'Granted permissions scope' }
+ *     }
+ *   }
+ * }
  */
 router.post("/token", validateBodyFields(['code']), async (req, res) => {
+  // #swagger.tags = ['Authentication']
+  // #swagger.description = 'Exchange OAuth authorization code for GitHub access token'
   const { code } = req.body;
   const client_id = process.env.GITHUB_CLIENT_ID;
   const client_secret = process.env.GITHUB_CLIENT_SECRET;

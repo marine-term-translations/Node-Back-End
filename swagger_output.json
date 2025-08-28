@@ -1,14 +1,588 @@
 {
   "swagger": "2.0",
   "info": {
-    "title": "API Documentation",
-    "description": "API Description",
+    "title": "Marine Term Translations API",
+    "description": "API for managing GitHub repositories and translation workflows for marine terminology",
     "version": "1.0.0"
   },
-  "host": "docker-dev.vliz.be:5002",
+  "host": "docker-dev.vliz.be:5000",
   "basePath": "/",
+  "tags": [
+    {
+      "name": "Authentication",
+      "description": "GitHub OAuth authentication endpoints"
+    },
+    {
+      "name": "GitHub",
+      "description": "GitHub repository management endpoints"
+    },
+    {
+      "name": "Translation",
+      "description": "Translation service endpoints"
+    }
+  ],
   "schemes": [
     "http"
   ],
-  "paths": {}
+  "securityDefinitions": {
+    "bearerAuth": {
+      "type": "apiKey",
+      "name": "authorization",
+      "in": "header",
+      "description": "GitHub Bearer Token Authentication\n\n**How to get your GitHub token:**\n1. Go to GitHub.com → Settings → Developer settings → Personal access tokens → Tokens (classic)\n2. Generate a new token with 'repo' scope permissions\n3. Copy the generated token\n\n**How to use in Swagger UI:**\n1. Click the 'Authorize' button below\n2. Enter: Bearer YOUR_GITHUB_TOKEN (replace YOUR_GITHUB_TOKEN with your actual token)\n3. Click 'Authorize' and then 'Close'\n\n**Example format:** Bearer ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\n\n**Required scopes:** repo (for repository access)"
+    }
+  },
+  "paths": {
+    "/oauth/link": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "description": "Generate GitHub OAuth authorization link for user authentication",
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/token": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "description": "Exchange OAuth authorization code for GitHub access token",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "code": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/branches": {
+      "get": {
+        "tags": [
+          "GitHub"
+        ],
+        "description": "Get repository branches filtered by key prefix from GitHub",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/tree": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/content": {
+      "get": {
+        "tags": [
+          "GitHub"
+        ],
+        "description": "Get content of a specific file from GitHub repository",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "path",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/user": {
+      "get": {
+        "tags": [
+          "GitHub"
+        ],
+        "description": "Get current authenticated GitHub user information",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/reviewers": {
+      "get": {
+        "tags": [
+          "GitHub"
+        ],
+        "description": "Get list of available reviewers for repository from reviewers.json",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/comment": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "token": {
+                  "example": "any"
+                },
+                "pull_number": {
+                  "example": "any"
+                },
+                "repo": {
+                  "example": "any"
+                },
+                "comment": {
+                  "example": "any"
+                },
+                "path": {
+                  "example": "any"
+                },
+                "sha": {
+                  "example": "any"
+                },
+                "line": {
+                  "example": "any"
+                },
+                "side": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/diff": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/conflicts": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/update": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "repo": {
+                  "example": "any"
+                },
+                "translations": {
+                  "example": "any"
+                },
+                "branch": {
+                  "example": "any"
+                },
+                "filename": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/commits": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "since",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/pr/comments": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "prNumber",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/changed": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/merge": {
+      "put": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "repo": {
+                  "example": "any"
+                },
+                "branch": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/pr/{prNumber}/file/{filePath}/approved": {
+      "get": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "prNumber",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "filePath",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "repo",
+            "in": "query",
+            "type": "string"
+          },
+          {
+            "name": "branch",
+            "in": "query",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/pr/{prNumber}/file/{filePath}/approve": {
+      "post": {
+        "description": "",
+        "parameters": [
+          {
+            "name": "prNumber",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "filePath",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "repo": {
+                  "example": "any"
+                },
+                "sha": {
+                  "example": "any"
+                },
+                "lang": {
+                  "example": "any"
+                },
+                "label_name": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/suggestions": {
+      "post": {
+        "tags": [
+          "Translation"
+        ],
+        "description": "Get AI-powered translation suggestions for given text",
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "text": {
+                  "example": "any"
+                },
+                "target": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
 }

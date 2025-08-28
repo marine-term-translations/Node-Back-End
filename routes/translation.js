@@ -8,8 +8,41 @@ const router = express.Router();
 /**
  * POST /api/translation/suggestions
  * Get translation suggestions for given text
+ * #swagger.tags = ['Translation']
+ * #swagger.description = 'Get AI-powered translation suggestions for given text'
+ * #swagger.parameters['body'] = {
+ *   in: 'body',
+ *   description: 'Text to translate and target language',
+ *   required: true,
+ *   schema: {
+ *     type: 'object',
+ *     required: ['text', 'target'],
+ *     properties: {
+ *       text: {
+ *         type: 'string',
+ *         description: 'Text to be translated'
+ *       },
+ *       target: {
+ *         type: 'string',
+ *         description: 'Target language code (e.g., "en", "fr", "es")'
+ *       }
+ *     }
+ *   }
+ * }
+ * #swagger.responses[200] = {
+ *   description: 'Translation suggestions retrieved successfully',
+ *   schema: {
+ *     type: 'object',
+ *     properties: {
+ *       suggestion: { type: 'string', description: 'Translated text suggestion' },
+ *       confidence: { type: 'number', description: 'Translation confidence score' }
+ *     }
+ *   }
+ * }
  */
 router.post("/suggestions", validateBodyFields(['text', 'target']), async (req, res) => {
+  // #swagger.tags = ['Translation']
+  // #swagger.description = 'Get AI-powered translation suggestions for given text'
   console.log(req.body);
   const { text, target } = req.body;
 
