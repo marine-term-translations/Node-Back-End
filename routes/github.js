@@ -1179,6 +1179,8 @@ router.post(
 
     try {
       const githubService = new GitHubService(token);
+      
+      console.log(`Processing repository creation request for ${vocabularyName}-${languageTag.toUpperCase()}`);
       const result = await githubService.createRepositoryWithInitialFiles(vocabularyName, languageTag);
       
       res.status(STATUS_CODES.CREATED).json({
@@ -1201,23 +1203,55 @@ router.post(
 
       if (error.response) {
         // Handle GitHub API-specific errors
-        if (error.response.status === 422) {
+        const status = error.response.status;
+        const message = error.response.data?.message || ERROR_MESSAGES.GITHUB_API_ERROR;
+        
+        if (status === 422) {
           return res.status(STATUS_CODES.CONFLICT).json({
             error: "Repository Already Exists",
-            message: `Repository ${vocabularyName}-${languageTag.toUpperCase()} already exists in the organization`
+            message: `Repository ${vocabularyName}-${languageTag.toUpperCase()} already exists in the organization`,
+            details: message
+          });
+        } else if (status === 403) {
+          return res.status(STATUS_CODES.UNAUTHORIZED).json({
+            error: "Insufficient Permissions",
+            message: "The provided token does not have sufficient permissions to create repositories",
+            details: message
+          });
+        } else if (status === 404) {
+          return res.status(STATUS_CODES.NOT_FOUND).json({
+            error: "Organization Not Found",
+            message: "The specified organization was not found or is not accessible",
+            details: message
+          });
+        } else {
+          return res.status(status).json({
+            error: "GitHub API Error",
+            message: message,
+            details: `HTTP ${status} error from GitHub API`
           });
         }
-
-        return res.status(error.response.status).json({
-          error: "GitHub API Error",
-          message: error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+      } else if (error.message.includes('template')) {
+        // Handle template-related errors
+        return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+          error: "Template Error",
+          message: "Failed to read or process template files",
+          details: error.message
+        });
+      } else if (error.message.includes('already exists')) {
+        // Handle repository already exists
+        return res.status(STATUS_CODES.CONFLICT).json({
+          error: "Repository Already Exists",
+          message: error.message
+        });
+      } else {
+        // Handle other errors
+        return res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+          error: "Internal Server Error",
+          message: "An unexpected error occurred while creating the repository",
+          details: error.message
         });
       }
-
-      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
-        error: "Internal Server Error",
-        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
-      });
     }
   }
 );
