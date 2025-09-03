@@ -1,7 +1,7 @@
 // Constants and environment configuration
 export const PORT = 5000;
 
-export const GITHUB_SCOPES = "write:packages%20write:repo_hook%20read:repo_hook%20repo";
+export const GITHUB_SCOPES = "write:packages%20write:repo_hook%20read:repo_hook%20repo%20workflow";
 
 export const GITHUB_API_VERSION = "2022-11-28";
 
@@ -30,7 +30,9 @@ export const ERROR_MESSAGES = {
   TRANSLATION_ERROR: "An error occurred while translating the text.",
   INTERNAL_SERVER_ERROR: "An unexpected error occurred.",
   GITHUB_API_ERROR: "An error occurred while communicating with the GitHub API.",
-  GATEWAY_TIMEOUT: "No response received from GitHub API."
+  GATEWAY_TIMEOUT: "No response received from GitHub API.",
+  INSUFFICIENT_SCOPES: "The provided token does not have sufficient permissions for this operation.",
+  WORKFLOW_SCOPE_REQUIRED: "The 'workflow' scope is required to create or modify workflow files."
 };
 
 export const STATUS_CODES = {

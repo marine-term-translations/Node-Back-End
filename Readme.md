@@ -341,6 +341,20 @@ Most endpoints require GitHub OAuth token authentication:
 Authorization: your_github_oauth_token
 ```
 
+#### OAuth Scopes
+
+The application requires the following GitHub OAuth scopes for full functionality:
+
+| Scope | Purpose | Required For |
+|-------|---------|--------------|
+| `repo` | Full repository access | All repository operations |
+| `workflow` | Workflow file access | Creating/updating `.github/workflows/*` files |
+| `write:packages` | Package write access | Package management operations |
+| `write:repo_hook` | Repository webhook write | Webhook management |
+| `read:repo_hook` | Repository webhook read | Webhook inspection |
+
+**Note**: The `repo` scope includes workflow permissions, but the `workflow` scope is explicitly requested to ensure compatibility with fine-grained personal access tokens and to clearly communicate the required permissions.
+
 ### Core Endpoints
 
 #### GitHub Authentication

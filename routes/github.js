@@ -10,6 +10,8 @@ import {
   validateGitHubOrgToken,
   validateGitHubOrg,
   validateRouteParams,
+  validateWorkflowScope,
+  validateWorkflowScopeConditional,
 } from "../middleware/validation.js";
 
 const router = express.Router();
@@ -449,6 +451,7 @@ router.put(
   "/update",
   validateGitHubToken,
   validateBodyFields(["repo", "translations", "branch", "filename"]),
+  validateWorkflowScopeConditional,
   validateGitHubOwner,
   async (req, res) => {
     const { repo, translations, branch, filename } = req.body;
@@ -1154,6 +1157,7 @@ router.post(
 router.post(
   "/repos/create",
   validateGitHubToken,
+  validateWorkflowScope,
   validateBodyFields(["vocabularyName", "languageTag"]),
   validateGitHubOwner,
   async (req, res) => {
