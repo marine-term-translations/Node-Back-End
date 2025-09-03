@@ -33,7 +33,7 @@ app.get("/api/github/oauth/link", async (req, res) => {
   }
 
   // Generate the GitHub OAuth authorization link
-  const scope = "write:packages%20write:repo_hook%20read:repo_hook%20repo";
+  const scope = "write:packages%20write:repo_hook%20read:repo_hook%20repo%20workflow";
 
   // Respond with the OAuth link
   res.json({ client_id, scope });
