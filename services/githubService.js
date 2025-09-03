@@ -97,38 +97,93 @@ export class GitHubService {
    * Get file content
    */
   async getFileContent(repo, path, branch) {
-    const response = await this.octokit.request(
-      "GET /repos/{owner}/{repo}/contents/{path}",
-      {
-        owner: this.owner,
-        repo,
-        path: path,
-        ref: branch,
-      }
-    );
+    try {
+      console.log(`Getting file content: ${path} from branch: ${branch}`);
+      
+      const response = await this.octokit.request(
+        "GET /repos/{owner}/{repo}/contents/{path}",
+        {
+          owner: this.owner,
+          repo,
+          path: path,
+          ref: branch,
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
 
-    const content = Buffer.from(response.data.content, "base64").toString(
-      "utf-8"
-    );
-    return parse(content);
+      const content = Buffer.from(response.data.content, "base64").toString(
+        "utf-8"
+      );
+      
+      console.log(`File content retrieved successfully: ${path}`);
+      return parse(content);
+      
+    } catch (error) {
+      console.error(`Failed to get file content for ${path}:`, error.message);
+      
+      if (error.response && error.response.status === 404) {
+        throw new Error(`File ${path} not found in repository ${repo} on branch ${branch}`);
+      } else if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'Unknown GitHub API error';
+        throw new Error(`GitHub API error getting file content (status ${status}): ${message}`);
+      } else {
+        throw new Error(`Failed to get file content for ${path}: ${error.message}`);
+      }
+    }
   }
 
   /**
    * Update file content
    */
   async updateFile(repo, path, content, message, branch, sha) {
-    return await this.octokit.request(
-      "PUT /repos/{owner}/{repo}/contents/{path}",
-      {
-        owner: this.owner,
-        repo,
-        path,
-        message,
-        content: Buffer.from(content).toString("base64"),
-        sha,
-        branch,
+    try {
+      // Validate required parameters
+      if (!repo || !path || !content || !message || !sha) {
+        throw new Error('All parameters (repo, path, content, message, sha) are required for file updates');
       }
-    );
+      
+      console.log(`Updating file: ${path} in repository: ${repo}`);
+      
+      const response = await this.octokit.request(
+        "PUT /repos/{owner}/{repo}/contents/{path}",
+        {
+          owner: this.owner,
+          repo,
+          path,
+          message,
+          content: Buffer.from(content).toString("base64"),
+          sha,
+          branch,
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
+      
+      console.log(`File updated successfully: ${path}`);
+      return response;
+      
+    } catch (error) {
+      console.error(`Failed to update file ${path}:`, error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'Unknown GitHub API error';
+        
+        if (status === 409) {
+          throw new Error(`Conflict updating file ${path}: The file has been modified by another process. SHA mismatch.`);
+        } else if (status === 404) {
+          throw new Error(`File ${path} not found in repository ${repo}`);
+        } else {
+          throw new Error(`GitHub API error updating file ${path} (status ${status}): ${message}`);
+        }
+      } else {
+        throw new Error(`Failed to update file ${path}: ${error.message}`);
+      }
+    }
   }
 
   /**
@@ -509,80 +564,98 @@ export class GitHubService {
    * Update file with translations - matching server-original.js structure
    */
   async updateFileWithTranslations(repo, translations, branch, filename) {
-    const value = translations;
-    const path = filename;
+    try {
+      const value = translations;
+      const path = filename;
 
-    // Fetch the file content from GitHub
-    const response = await this.octokit.request(
-      "GET /repos/{owner}/{repo}/contents/{path}",
-      {
-        owner: this.owner,
-        repo,
-        path,
-        ref: branch,
-      }
-    );
+      console.log(`Updating translations in file: ${path}`);
 
-    const content = parse(
-      Buffer.from(response.data.content, "base64").toString("utf-8")
-    );
+      // Fetch the file content from GitHub (this will give us both content and SHA)
+      const response = await this.octokit.request(
+        "GET /repos/{owner}/{repo}/contents/{path}",
+        {
+          owner: this.owner,
+          repo,
+          path,
+          ref: branch,
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
 
-    // Update the content with the provided translations
-    content.labels.forEach((label) => {
-      const translationKey = label.name;
-      if (value.hasOwnProperty(translationKey)) {
-        Object.entries(value[translationKey]).forEach(([language, term]) => {
-          const translationObj = label.translations.find((t) =>
-            t.hasOwnProperty(language)
-          );
-          if (translationObj) {
-            translationObj[language] = term;
-          } else {
-            console.warn(
-              `Language ${language} not found for label ${translationKey}`
+      const content = parse(
+        Buffer.from(response.data.content, "base64").toString("utf-8")
+      );
+
+      // Update the content with the provided translations
+      content.labels.forEach((label) => {
+        const translationKey = label.name;
+        if (value.hasOwnProperty(translationKey)) {
+          Object.entries(value[translationKey]).forEach(([language, term]) => {
+            const translationObj = label.translations.find((t) =>
+              t.hasOwnProperty(language)
             );
-          }
-        });
+            if (translationObj) {
+              translationObj[language] = term;
+            } else {
+              console.warn(
+                `Language ${language} not found for label ${translationKey}`
+              );
+            }
+          });
+        }
+      });
+
+      const updatedContent = stringify(content, {
+        quotingType: '"',
+        prettyErrors: true,
+        lineWidth: 0,
+        defaultStringType: "QUOTE_DOUBLE",
+        defaultKeyType: "PLAIN",
+      });
+
+      // Use the SHA from the first request (no need to fetch again)
+      const sha = response.data.sha;
+
+      // Commit the updated file to the repository
+      const response2 = await this.octokit.request(
+        "PUT /repos/{owner}/{repo}/contents/{path}",
+        {
+          owner: this.owner,
+          repo,
+          path,
+          branch,
+          message: `Update translations for ${path}`,
+          content: Buffer.from(updatedContent).toString("base64"),
+          sha,
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
+
+      console.log(`Translations updated successfully in: ${path}`);
+      return response2;
+      
+    } catch (error) {
+      console.error(`Failed to update translations in ${filename}:`, error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'Unknown GitHub API error';
+        
+        if (status === 404) {
+          throw new Error(`File ${filename} not found in repository ${repo} on branch ${branch}`);
+        } else if (status === 409) {
+          throw new Error(`Conflict updating ${filename}: The file has been modified by another process`);
+        } else {
+          throw new Error(`GitHub API error updating translations (status ${status}): ${message}`);
+        }
+      } else {
+        throw new Error(`Failed to update translations in ${filename}: ${error.message}`);
       }
-    });
-
-    const updatedContent = stringify(content, {
-      quotingType: '"',
-      prettyErrors: true,
-      lineWidth: 0,
-      defaultStringType: "QUOTE_DOUBLE",
-      defaultKeyType: "PLAIN",
-    });
-
-    // Fetch the sha of file content from GitHub
-    const responseSha = await this.octokit.request(
-      "GET /repos/{owner}/{repo}/contents/{path}",
-      {
-        owner: this.owner,
-        repo,
-        path,
-        ref: branch,
-      }
-    );
-
-    // Commit the updated file to the repository
-    const response2 = await this.octokit.request(
-      "PUT /repos/{owner}/{repo}/contents/{path}",
-      {
-        owner: this.owner,
-        repo,
-        path,
-        branch,
-        message: `Update translations for ${path}`,
-        content: Buffer.from(updatedContent).toString("base64"),
-        sha: responseSha.data.sha,
-        headers: {
-          "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        },
-      }
-    );
-
-    return response2;
+    }
   }
 
   /**
@@ -1176,20 +1249,55 @@ export class GitHubService {
    * Create a new repository in the organization
    */
   async createRepository(name, description, isPrivate = false) {
-    const response = await this.octokit.request(
-      "POST /orgs/{org}/repos",
-      {
-        org: this.owner,
-        name,
-        description,
-        private: isPrivate,
-        auto_init: true,
-        headers: {
-          "X-GitHub-Api-Version": GITHUB_API_VERSION,
-        },
+    try {
+      // Validate inputs
+      if (!name || typeof name !== 'string') {
+        throw new Error('Repository name is required and must be a string');
       }
-    );
-    return response.data;
+      
+      if (!this.owner) {
+        throw new Error('GitHub owner/organization is not configured');
+      }
+      
+      console.log(`Creating repository: ${name} in organization: ${this.owner}`);
+      
+      const response = await this.octokit.request(
+        "POST /orgs/{org}/repos",
+        {
+          org: this.owner,
+          name,
+          description: description || `Repository for ${name}`,
+          private: isPrivate,
+          auto_init: true,
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
+      
+      console.log(`Repository created successfully: ${response.data.html_url}`);
+      return response.data;
+      
+    } catch (error) {
+      console.error(`Failed to create repository ${name}:`, error.message);
+      
+      if (error.response) {
+        const status = error.response.status;
+        const message = error.response.data?.message || 'Unknown GitHub API error';
+        
+        if (status === 422) {
+          throw new Error(`Repository ${name} already exists in organization ${this.owner}`);
+        } else if (status === 403) {
+          throw new Error(`Insufficient permissions to create repository in organization ${this.owner}`);
+        } else if (status === 404) {
+          throw new Error(`Organization ${this.owner} not found or not accessible`);
+        } else {
+          throw new Error(`GitHub API error creating repository (status ${status}): ${message}`);
+        }
+      } else {
+        throw new Error(`Failed to create repository ${name}: ${error.message}`);
+      }
+    }
   }
 
   /**
@@ -1199,20 +1307,88 @@ export class GitHubService {
     const results = [];
     
     for (const file of files) {
-      const response = await this.octokit.request(
-        "PUT /repos/{owner}/{repo}/contents/{path}",
-        {
-          owner: this.owner,
-          repo,
-          path: file.path,
-          message: file.message || `Add ${file.path}`,
-          content: Buffer.from(file.content).toString("base64"),
-          headers: {
-            "X-GitHub-Api-Version": GITHUB_API_VERSION,
-          },
+      try {
+        console.log(`Creating file: ${file.path}`);
+        
+        // Validate file content
+        if (!file.content) {
+          throw new Error(`File content is empty for ${file.path}`);
         }
-      );
-      results.push(response.data);
+        
+        const response = await this.octokit.request(
+          "PUT /repos/{owner}/{repo}/contents/{path}",
+          {
+            owner: this.owner,
+            repo,
+            path: file.path,
+            message: file.message || `Add ${file.path}`,
+            content: Buffer.from(file.content).toString("base64"),
+            headers: {
+              "X-GitHub-Api-Version": GITHUB_API_VERSION,
+            },
+          }
+        );
+        
+        console.log(`File created successfully: ${file.path}`);
+        results.push(response.data);
+        
+      } catch (error) {
+        console.error(`Failed to create file ${file.path}:`, error.message);
+        
+        // Handle specific GitHub API errors
+        if (error.response) {
+          const status = error.response.status;
+          const message = error.response.data?.message || 'Unknown GitHub API error';
+          
+          if (status === 422) {
+            // File already exists - this might happen if the repository was created with auto_init
+            console.warn(`File ${file.path} already exists, attempting to update it`);
+            
+            try {
+              // Get current file to get its SHA
+              const currentFile = await this.octokit.request(
+                "GET /repos/{owner}/{repo}/contents/{path}",
+                {
+                  owner: this.owner,
+                  repo,
+                  path: file.path,
+                  headers: {
+                    "X-GitHub-Api-Version": GITHUB_API_VERSION,
+                  },
+                }
+              );
+              
+              // Update the file with SHA
+              const updateResponse = await this.octokit.request(
+                "PUT /repos/{owner}/{repo}/contents/{path}",
+                {
+                  owner: this.owner,
+                  repo,
+                  path: file.path,
+                  message: file.message || `Update ${file.path}`,
+                  content: Buffer.from(file.content).toString("base64"),
+                  sha: currentFile.data.sha,
+                  headers: {
+                    "X-GitHub-Api-Version": GITHUB_API_VERSION,
+                  },
+                }
+              );
+              
+              console.log(`File updated successfully: ${file.path}`);
+              results.push(updateResponse.data);
+              continue;
+              
+            } catch (updateError) {
+              console.error(`Failed to update existing file ${file.path}:`, updateError.message);
+              throw new Error(`Failed to create or update file ${file.path}: ${updateError.message}`);
+            }
+          } else {
+            throw new Error(`GitHub API error creating file ${file.path} (status ${status}): ${message}`);
+          }
+        } else {
+          throw new Error(`Failed to create file ${file.path}: ${error.message}`);
+        }
+      }
     }
     
     return results;
@@ -1225,61 +1401,94 @@ export class GitHubService {
     const repoName = `${vocabularyName}-${languageTag.toUpperCase()}`;
     const description = `Translation repository for ${vocabularyName} vocabulary in ${languageTag}`;
     
-    // Create the repository
-    const repo = await this.createRepository(repoName, description, false);
-    
-    // Read template files from the filesystem
-    const fs = await import('fs/promises');
-    const path = await import('path');
-    const { fileURLToPath } = await import('url');
-    
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    const templatesDir = path.join(__dirname, '..', 'templates');
-    
-    // Read template content
-    const configTemplate = await fs.readFile(path.join(templatesDir, 'config.yml'), 'utf-8');
-    const reviewersTemplate = await fs.readFile(path.join(templatesDir, 'reviewers.json'), 'utf-8');
-    const ldesFragmentTemplate = await fs.readFile(path.join(templatesDir, 'ldes_fragment_maker.yml'), 'utf-8');
-    const ldesSyncTemplate = await fs.readFile(path.join(templatesDir, 'ldes_sync_harvest.yml'), 'utf-8');
-    
-    // Replace template variables in config.yml
-    const configContent = configTemplate
-      .replace(/\{\{vocabularyName\}\}/g, vocabularyName)
-      .replace(/\{\{languageTag\}\}/g, languageTag)
-      .replace(/\{\{languageTag\.toUpperCase\(\)\}\}/g, languageTag.toUpperCase());
-    
-    // Prepare files to create
-    const filesToCreate = [
-      {
-        path: 'config.yml',
-        content: configContent,
-        message: 'Add initial config.yml'
-      },
-      {
-        path: 'reviewers.json',
-        content: reviewersTemplate,
-        message: 'Add empty reviewers.json'
-      },
-      {
-        path: '.github/workflows/ldes_fragment_maker.yml',
-        content: ldesFragmentTemplate,
-        message: 'Add LDES fragment maker workflow'
-      },
-      {
-        path: '.github/workflows/ldes_sync_harvest.yml',
-        content: ldesSyncTemplate,
-        message: 'Add LDES sync harvest workflow'
+    try {
+      // Create the repository
+      console.log(`Creating repository: ${repoName}`);
+      const repo = await this.createRepository(repoName, description, false);
+      console.log(`Repository created successfully: ${repo.html_url}`);
+      
+      // Read template files from the filesystem with proper error handling
+      const fs = await import('fs/promises');
+      const path = await import('path');
+      const { fileURLToPath } = await import('url');
+      
+      const __filename = fileURLToPath(import.meta.url);
+      const __dirname = path.dirname(__filename);
+      const templatesDir = path.join(__dirname, '..', 'templates');
+      
+      // Validate template directory and files exist
+      try {
+        await fs.access(templatesDir);
+      } catch (error) {
+        console.error(`Templates directory not found: ${templatesDir}`);
+        throw new Error(`Templates directory not found: ${templatesDir}. Cannot create repository files.`);
       }
-    ];
-    
-    // Create all files
-    const fileResults = await this.createMultipleFiles(repoName, filesToCreate);
-    
-    return {
-      repository: repo,
-      files: fileResults
-    };
+      
+      // Read template content with individual error handling
+      let configTemplate, reviewersTemplate, ldesFragmentTemplate, ldesSyncTemplate;
+      
+      try {
+        console.log('Reading template files...');
+        configTemplate = await fs.readFile(path.join(templatesDir, 'config.yml'), 'utf-8');
+        reviewersTemplate = await fs.readFile(path.join(templatesDir, 'reviewers.json'), 'utf-8');
+        ldesFragmentTemplate = await fs.readFile(path.join(templatesDir, 'ldes_fragment_maker.yml'), 'utf-8');
+        ldesSyncTemplate = await fs.readFile(path.join(templatesDir, 'ldes_sync_harvest.yml'), 'utf-8');
+        console.log('Template files read successfully');
+      } catch (error) {
+        console.error(`Failed to read template files: ${error.message}`);
+        throw new Error(`Failed to read template files: ${error.message}. Ensure all required template files exist.`);
+      }
+      
+      // Replace template variables in config.yml
+      const configContent = configTemplate
+        .replace(/\{\{vocabularyName\}\}/g, vocabularyName)
+        .replace(/\{\{languageTag\}\}/g, languageTag)
+        .replace(/\{\{languageTag\.toUpperCase\(\)\}\}/g, languageTag.toUpperCase());
+      
+      // Prepare files to create
+      const filesToCreate = [
+        {
+          path: 'config.yml',
+          content: configContent,
+          message: 'Add initial config.yml'
+        },
+        {
+          path: 'reviewers.json',
+          content: reviewersTemplate,
+          message: 'Add empty reviewers.json'
+        },
+        {
+          path: '.github/workflows/ldes_fragment_maker.yml',
+          content: ldesFragmentTemplate,
+          message: 'Add LDES fragment maker workflow'
+        },
+        {
+          path: '.github/workflows/ldes_sync_harvest.yml',
+          content: ldesSyncTemplate,
+          message: 'Add LDES sync harvest workflow'
+        }
+      ];
+      
+      // Create all files with enhanced error handling
+      console.log(`Creating ${filesToCreate.length} initial files...`);
+      const fileResults = await this.createMultipleFiles(repoName, filesToCreate);
+      console.log('All files created successfully');
+      
+      return {
+        repository: repo,
+        files: fileResults
+      };
+    } catch (error) {
+      console.error(`Error in createRepositoryWithInitialFiles: ${error.message}`);
+      
+      // If repository was created but file creation failed, log warning
+      if (error.message.includes('template') || error.message.includes('file')) {
+        console.warn(`Repository ${repoName} was created but initial files may not have been added properly`);
+      }
+      
+      // Re-throw with enhanced context
+      throw error;
+    }
   }
 }
 
