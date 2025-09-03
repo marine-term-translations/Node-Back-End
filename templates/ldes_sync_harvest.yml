@@ -1,0 +1,15 @@
+name: LDES_sync_download
+
+on:
+  #push:
+  #  branches: [main]
+  workflow_dispatch:
+
+jobs:
+  sync_download_ldes:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: LDES harvest_sync
+        uses: cedricdcc/ldes-sync-harvest-action@latest

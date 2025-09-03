@@ -1171,6 +1171,116 @@ export class GitHubService {
     
     return { message: `User ${username} moved from ${fromTeamSlug} to ${toTeamSlug}` };
   }
+
+  /**
+   * Create a new repository in the organization
+   */
+  async createRepository(name, description, isPrivate = false) {
+    const response = await this.octokit.request(
+      "POST /orgs/{org}/repos",
+      {
+        org: this.owner,
+        name,
+        description,
+        private: isPrivate,
+        auto_init: true,
+        headers: {
+          "X-GitHub-Api-Version": GITHUB_API_VERSION,
+        },
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Create multiple files in a repository at once
+   */
+  async createMultipleFiles(repo, files) {
+    const results = [];
+    
+    for (const file of files) {
+      const response = await this.octokit.request(
+        "PUT /repos/{owner}/{repo}/contents/{path}",
+        {
+          owner: this.owner,
+          repo,
+          path: file.path,
+          message: file.message || `Add ${file.path}`,
+          content: Buffer.from(file.content).toString("base64"),
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
+      results.push(response.data);
+    }
+    
+    return results;
+  }
+
+  /**
+   * Create a new repository with initial configuration and workflow files
+   */
+  async createRepositoryWithInitialFiles(vocabularyName, languageTag) {
+    const repoName = `${vocabularyName}-${languageTag.toUpperCase()}`;
+    const description = `Translation repository for ${vocabularyName} vocabulary in ${languageTag}`;
+    
+    // Create the repository
+    const repo = await this.createRepository(repoName, description, false);
+    
+    // Read template files from the filesystem
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const { fileURLToPath } = await import('url');
+    
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
+    const templatesDir = path.join(__dirname, '..', 'templates');
+    
+    // Read template content
+    const configTemplate = await fs.readFile(path.join(templatesDir, 'config.yml'), 'utf-8');
+    const reviewersTemplate = await fs.readFile(path.join(templatesDir, 'reviewers.json'), 'utf-8');
+    const ldesFragmentTemplate = await fs.readFile(path.join(templatesDir, 'ldes_fragment_maker.yml'), 'utf-8');
+    const ldesSyncTemplate = await fs.readFile(path.join(templatesDir, 'ldes_sync_harvest.yml'), 'utf-8');
+    
+    // Replace template variables in config.yml
+    const configContent = configTemplate
+      .replace(/\{\{vocabularyName\}\}/g, vocabularyName)
+      .replace(/\{\{languageTag\}\}/g, languageTag)
+      .replace(/\{\{languageTag\.toUpperCase\(\)\}\}/g, languageTag.toUpperCase());
+    
+    // Prepare files to create
+    const filesToCreate = [
+      {
+        path: 'config.yml',
+        content: configContent,
+        message: 'Add initial config.yml'
+      },
+      {
+        path: 'reviewers.json',
+        content: reviewersTemplate,
+        message: 'Add empty reviewers.json'
+      },
+      {
+        path: '.github/workflows/ldes_fragment_maker.yml',
+        content: ldesFragmentTemplate,
+        message: 'Add LDES fragment maker workflow'
+      },
+      {
+        path: '.github/workflows/ldes_sync_harvest.yml',
+        content: ldesSyncTemplate,
+        message: 'Add LDES sync harvest workflow'
+      }
+    ];
+    
+    // Create all files
+    const fileResults = await this.createMultipleFiles(repoName, filesToCreate);
+    
+    return {
+      repository: repo,
+      files: fileResults
+    };
+  }
 }
 
 /**

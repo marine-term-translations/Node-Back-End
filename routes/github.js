@@ -1099,4 +1099,127 @@ router.post(
   }
 );
 
+/**
+ * POST /api/github/repos/create
+ * Create a new repository with initial configuration and workflow files
+ * #swagger.description = 'Create a new repository in the organization with initial config and workflows'
+ * #swagger.parameters['authorization'] = {
+ *   in: 'header',
+ *   description: 'Bearer token for GitHub authentication (format: Bearer YOUR_GITHUB_TOKEN)',
+ *   required: true,
+ *   type: 'string'
+ * }
+ * #swagger.parameters['body'] = {
+ *   in: 'body',
+ *   description: 'Repository creation parameters',
+ *   required: true,
+ *   schema: {
+ *     type: 'object',
+ *     required: ['vocabularyName', 'languageTag'],
+ *     properties: {
+ *       vocabularyName: {
+ *         type: 'string',
+ *         description: 'Vocabulary name (e.g., P02)',
+ *         example: 'P02'
+ *       },
+ *       languageTag: {
+ *         type: 'string',
+ *         description: 'Language tag (e.g., en, nl, es)',
+ *         example: 'nl'
+ *       }
+ *     }
+ *   }
+ * }
+ * #swagger.responses[201] = {
+ *   description: 'Repository created successfully',
+ *   schema: {
+ *     type: 'object',
+ *     properties: {
+ *       repository: {
+ *         type: 'object',
+ *         properties: {
+ *           name: { type: 'string', description: 'Repository name' },
+ *           html_url: { type: 'string', description: 'Repository URL' },
+ *           clone_url: { type: 'string', description: 'Clone URL' }
+ *         }
+ *       },
+ *       files: {
+ *         type: 'array',
+ *         description: 'Created files information'
+ *       }
+ *     }
+ *   }
+ * }
+ */
+router.post(
+  "/repos/create",
+  validateGitHubToken,
+  validateBodyFields(["vocabularyName", "languageTag"]),
+  validateGitHubOwner,
+  async (req, res) => {
+    // #swagger.tags = ['Repository']
+    // #swagger.description = 'Create a new repository in the organization with initial config and workflows'
+    const { vocabularyName, languageTag } = req.body;
+    const token = req.headers.authorization;
+
+    // Validate input format
+    if (!/^[A-Za-z0-9_-]+$/.test(vocabularyName)) {
+      return res.status(STATUS_CODES.BAD_REQUEST).json({
+        error: "Bad Request",
+        message: "vocabularyName must contain only alphanumeric characters, hyphens, and underscores"
+      });
+    }
+
+    if (!/^[a-z]{2,3}$/.test(languageTag)) {
+      return res.status(STATUS_CODES.BAD_REQUEST).json({
+        error: "Bad Request", 
+        message: "languageTag must be a valid language code (2-3 lowercase letters)"
+      });
+    }
+
+    try {
+      const githubService = new GitHubService(token);
+      const result = await githubService.createRepositoryWithInitialFiles(vocabularyName, languageTag);
+      
+      res.status(STATUS_CODES.CREATED).json({
+        success: true,
+        message: `Repository ${vocabularyName}-${languageTag.toUpperCase()} created successfully`,
+        repository: {
+          name: result.repository.name,
+          html_url: result.repository.html_url,
+          clone_url: result.repository.clone_url,
+          ssh_url: result.repository.ssh_url
+        },
+        files: result.files.map(file => ({
+          path: file.content.path,
+          url: file.content.html_url,
+          sha: file.content.sha
+        }))
+      });
+    } catch (error) {
+      console.error("Error creating repository:", error);
+
+      if (error.response) {
+        // Handle GitHub API-specific errors
+        if (error.response.status === 422) {
+          return res.status(STATUS_CODES.CONFLICT).json({
+            error: "Repository Already Exists",
+            message: `Repository ${vocabularyName}-${languageTag.toUpperCase()} already exists in the organization`
+          });
+        }
+
+        return res.status(error.response.status).json({
+          error: "GitHub API Error",
+          message: error.response.data.message || ERROR_MESSAGES.GITHUB_API_ERROR,
+        });
+      }
+
+      res.status(STATUS_CODES.INTERNAL_SERVER_ERROR).json({
+        error: "Internal Server Error",
+        message: ERROR_MESSAGES.INTERNAL_SERVER_ERROR,
+      });
+    }
+  }
+);
+
 export default router;

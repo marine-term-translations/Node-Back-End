@@ -549,6 +549,257 @@
         }
       }
     },
+    "/org/members": {
+      "get": {
+        "tags": [
+          "Organization"
+        ],
+        "description": "Get all members of the GitHub organization",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/org/members/{username}": {
+      "put": {
+        "tags": [
+          "Organization"
+        ],
+        "description": "Invite a user to the GitHub organization",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Organization"
+        ],
+        "description": "Remove a user from the GitHub organization",
+        "parameters": [
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/org/teams": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "description": "Get all teams in the GitHub organization",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/org/teams/{team_slug}/members": {
+      "get": {
+        "tags": [
+          "Teams"
+        ],
+        "description": "Get all members of a specific team in the GitHub organization",
+        "parameters": [
+          {
+            "name": "team_slug",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/org/teams/{team_slug}/members/{username}": {
+      "put": {
+        "tags": [
+          "Teams"
+        ],
+        "description": "Add a user to a specific team in the GitHub organization",
+        "parameters": [
+          {
+            "name": "team_slug",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Teams"
+        ],
+        "description": "Remove a user from a specific team in the GitHub organization",
+        "parameters": [
+          {
+            "name": "team_slug",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
+    "/org/teams/{from_team_slug}/move/{to_team_slug}/{username}": {
+      "post": {
+        "tags": [
+          "Teams"
+        ],
+        "description": "Move a user from one team to another in the GitHub organization",
+        "parameters": [
+          {
+            "name": "from_team_slug",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "to_team_slug",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "username",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/repos/create": {
+      "post": {
+        "tags": [
+          "Repository"
+        ],
+        "description": "Create a new repository in the organization with initial config and workflows",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "schema": {
+              "type": "object",
+              "properties": {
+                "vocabularyName": {
+                  "example": "any"
+                },
+                "languageTag": {
+                  "example": "any"
+                }
+              }
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": ""
+          }
+        }
+      }
+    },
     "/suggestions": {
       "post": {
         "tags": [

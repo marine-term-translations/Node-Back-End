@@ -1,0 +1,16 @@
+batch-size: 20
+target_languages:
+  - {{languageTag}}
+sources:
+  - name: {{vocabularyName}}
+    url: http://vocab.nerc.ac.uk/ldes/{{vocabularyName}}/
+    language: en
+    id-path: http://www.w3.org/2004/02/skos/core#Concept
+    items:
+      - name: definition
+        path: http://www.w3.org/2004/02/skos/core#definition
+      - name: altLabel
+        path: http://www.w3.org/2004/02/skos/core#altLabel
+      - name: prefLabel
+        path: http://www.w3.org/2004/02/skos/core#prefLabel
+base_uri: https://marine-term-translations.github.io/{{vocabularyName}}-{{languageTag.toUpperCase()}}

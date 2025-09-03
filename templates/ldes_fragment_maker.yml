@@ -1,0 +1,29 @@
+name: ldes_fragment_maker_and_publisher
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [closed]
+
+jobs:
+  ldes_fragment_maker_and_publisher:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: LDES fragment maker and publisher
+        uses: marine-term-translations/ldes_fragment_maker_action@latest
+        with:
+          branch: ${{ github.ref_name }}
+      #- name: Deploy to GitHub Pages
+      #  uses: peaceiris/actions-gh-pages@v3
+      #  with:
+      #    github_token: ${{ secrets.GITHUB_TOKEN }}
+      #    publish_dir: ./ldes
+      #- name: Commit change of hash file
+      #  run: |
+      #    git config --global user.name 'GitHub Actions'
+      #    git config --global user.email 'actions@github.com'
+      #    git add .github/last_ldes_hash
+      #    git commit -m "Update LDES hash file"
+      #    git push
