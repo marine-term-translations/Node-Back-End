@@ -1348,7 +1348,7 @@ export class GitHubService {
           {
             owner: this.owner,
             repo,
-            path: encodeURIComponent(file.path),
+            path: file.path,
             message: file.message || `Add ${file.path}`,
             content: Buffer.from(file.content).toString("base64"),
             headers: {
