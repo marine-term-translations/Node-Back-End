@@ -736,6 +736,84 @@ export class GitHubService {
   }
 
   /**
+   * Get leaderboard data by aggregating commits across all repositories
+   */
+  async getLeaderboardData() {
+    try {
+      // Get all repositories in the organization
+      const reposResponse = await this.octokit.request(
+        "GET /orgs/{org}/repos",
+        {
+          org: this.owner,
+          type: "all",
+          per_page: 100,
+          headers: {
+            "X-GitHub-Api-Version": GITHUB_API_VERSION,
+          },
+        }
+      );
+
+      const repositories = reposResponse.data;
+      const contributorMap = new Map();
+
+      // Process each repository
+      for (const repo of repositories) {
+        try {
+          // Get commits for this repository
+          const commitsResponse = await this.octokit.request(
+            "GET /repos/{owner}/{repo}/commits",
+            {
+              owner: this.owner,
+              repo: repo.name,
+              per_page: 100,
+              headers: {
+                "X-GitHub-Api-Version": GITHUB_API_VERSION,
+              },
+            }
+          );
+
+          // Count commits per contributor for this project
+          for (const commit of commitsResponse.data) {
+            if (commit.author && commit.author.login) {
+              const userId = commit.author.login;
+              const projectName = repo.name;
+
+              if (!contributorMap.has(userId)) {
+                contributorMap.set(userId, {
+                  userId,
+                  totalEdits: 0,
+                  projects: {}
+                });
+              }
+
+              const contributor = contributorMap.get(userId);
+              contributor.totalEdits += 1;
+              
+              if (!contributor.projects[projectName]) {
+                contributor.projects[projectName] = 0;
+              }
+              contributor.projects[projectName] += 1;
+            }
+          }
+        } catch (repoError) {
+          console.warn(`Failed to get commits for repository ${repo.name}:`, repoError.message);
+          // Continue with other repositories
+        }
+      }
+
+      // Convert map to array and sort by totalEdits descending
+      const leaderboard = Array.from(contributorMap.values())
+        .filter(contributor => contributor.totalEdits > 0)
+        .sort((a, b) => b.totalEdits - a.totalEdits);
+
+      return { leaderboard };
+    } catch (error) {
+      console.error("Error getting leaderboard data:", error);
+      throw new Error("Failed to retrieve leaderboard data");
+    }
+  }
+
+  /**
    * Get changed files and their status - matching server-original.js structure
    */
   async getChangedFiles(repo, branch) {
