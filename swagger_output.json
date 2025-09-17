@@ -19,6 +19,10 @@
     {
       "name": "Translation",
       "description": "Translation service endpoints"
+    },
+    {
+      "name": "Analytics",
+      "description": "Analytics and reporting endpoints"
     }
   ],
   "schemes": [
@@ -821,6 +825,26 @@
                 }
               }
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK"
+          }
+        }
+      }
+    },
+    "/leaderboard": {
+      "get": {
+        "tags": [
+          "Analytics"
+        ],
+        "description": "Get aggregated contributor statistics across all organization repositories",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "type": "string"
           }
         ],
         "responses": {
