@@ -9,6 +9,7 @@ import { PORT } from '../utils/constants.js';
 import authRoutes from '../routes/auth.js';
 import githubRoutes from '../routes/github.js';
 import translationRoutes from '../routes/translation.js';
+import leaderboardRoutes from '../routes/leaderboard.js';
 
 // Load environment variables
 dotenv.config();
@@ -30,6 +31,7 @@ export function createApp() {
   app.use("/api/github", authRoutes);
   app.use("/api/github", githubRoutes);
   app.use("/api/translation", translationRoutes);
+  app.use("/api", leaderboardRoutes);
 
   return app;
 }

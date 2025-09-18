@@ -396,6 +396,12 @@ The application requires the following GitHub OAuth scopes for full functionalit
 |--------|----------|-------------|
 | `POST` | `/api/translation/suggestions` | Get translation suggestions |
 
+#### Analytics
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/leaderboard` | Get contributor leaderboard statistics |
+
 ### Request/Response Flow
 
 ```mermaid

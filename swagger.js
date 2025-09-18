@@ -52,6 +52,10 @@ const doc = {
     {
       name: "Translation",
       description: "Translation service endpoints"
+    },
+    {
+      name: "Analytics",
+      description: "Analytics and reporting endpoints"
     }
   ]
 };
@@ -61,7 +65,8 @@ const outputFile = "./swagger_output.json";
 const routes = [
   "./routes/auth.js",
   "./routes/github.js", 
-  "./routes/translation.js"
+  "./routes/translation.js",
+  "./routes/leaderboard.js"
 ];
 
 swaggerAutogen()(outputFile, routes, doc);
