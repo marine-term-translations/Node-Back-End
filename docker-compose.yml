@@ -15,7 +15,7 @@ services:
     restart: unless-stopped
     build: ./proxy
     ports:
-      - "5002:443"
+      - "5002:80"
     depends_on:
       - node_server_backend
     
